@@ -7,6 +7,13 @@ SKILL.md, AGENTS.md, platform manifests, install scripts, bootstrap wrappers,
 maintenance scripts, eval harnesses, references, assets, and cross-platform
 export metadata.
 
+The repository also now includes a GitHub-backed distribution path documented in
+`VERSION.md`: `skillctl`, a central registry, semantic search, publish/install
+commands, and registry-driven discovery. That layer is different from the
+per-skill platform adapters this design removes. `skillctl` is an external
+distribution mechanism; universal mode controls what is generated inside each
+skill package.
+
 That default is useful when the goal is broad platform distribution. It is less
 ideal when the goal is maximum agent usability: generated skills carry platform
 artifacts, platform-specific invocation patterns, and maintenance machinery that
@@ -19,7 +26,8 @@ runtime that can read files and run scripts.
 ## Goal
 
 Add a `--universal` generation mode that produces skills with no agent-platform
-binding and no platform-specific install assumptions.
+binding inside the generated package and no per-platform install assumptions in
+the skill itself.
 
 The generated skill should be usable on every platform the same way:
 
@@ -31,6 +39,11 @@ The mode should improve AI utilization by reducing noise, making capability
 matching semantic instead of slash-command based, and providing a concrete I/O
 contract that an agent can reason about before running the skill.
 
+Universal output must remain compatible with GitHub-based CLI distribution:
+`skillctl publish <skill-dir>` should be able to register a universal skill, and
+`skillctl install <name>` should be able to retrieve it. The installed package
+still exposes the same platform-neutral runtime command.
+
 ## Non-Goals
 
 - Do not remove the existing default cross-platform distribution mode.
@@ -38,6 +51,8 @@ contract that an agent can reason about before running the skill.
 - Do not remove validation or security scanning from the factory.
 - Do not make universal mode the default in this change.
 - Do not create platform-specific adapters for universal mode.
+- Do not remove or weaken `skillctl`, the central registry, or the GitHub CLI
+  distribution path.
 
 ## Recommended Approach
 
@@ -135,6 +150,14 @@ Removed from universal output:
 - `scripts/evolve.py`
 - staleness, dependency-health, schema-drift, and skill-document scripts
 - platform-specific activation examples
+
+Not removed:
+
+- repository-level `skillctl`
+- repository-level `VERSION.md`
+- central registry publishing/installing through GitHub
+- generated skill metadata needed by `skillctl`, including `name`,
+  `description`, and `metadata.version`
 
 Complex suites use the same principle: each component keeps only capability
 docs, executable logic, tests/evals, assets, and dependency declarations.
@@ -321,13 +344,27 @@ Eval spec shape:
 }
 ```
 
-## Installation Model
+## Distribution And Installation Model
 
-Universal skills do not have an installer.
+Universal skills do not ship their own per-platform installer.
 
-A universal skill is a directory. Copying or cloning that directory is the
-installation mechanism. Every platform can use it by reading the files and
-running the same command.
+A universal skill is a directory with a stable runtime contract. Copying or
+cloning that directory is sufficient for direct use. Every platform can use it
+by reading the files and running the same command.
+
+The GitHub-backed `skillctl` distribution path remains supported and should be
+the preferred discovery/install path when a registry is available:
+
+```bash
+python3 scripts/skillctl/__main__.py search <query>
+python3 scripts/skillctl/__main__.py install <skill-name>
+python3 scripts/skillctl/__main__.py publish <skill-dir>
+```
+
+`skillctl` may copy the skill into platform-specific locations as an external
+installer concern. That does not make the generated skill platform-bound,
+because the skill package itself does not contain platform adapters, shell
+wrappers, marketplace manifests, or platform-specific activation syntax.
 
 README.md should be brief:
 
@@ -335,6 +372,11 @@ README.md should be brief:
 # <skill-name>
 
 <one sentence>
+
+## Install
+
+Use this directory directly, clone it from source, or install it from a registry
+with `skillctl install <skill-name>` when the registry is available.
 
 ## Run
 
@@ -356,6 +398,7 @@ Universal mode still uses the factory's normal validation and security checks.
 Validation should confirm:
 
 - `SKILL.md` has valid frontmatter.
+- `metadata.version` exists so `skillctl publish` can tag and index the skill.
 - `SKILL.md` has no `Trigger` section.
 - `SKILL.md` includes an output example.
 - `AGENTS.md` stays under 25 lines.
@@ -365,6 +408,8 @@ Validation should confirm:
 - no generated eval criterion has `type: "llm-judge"`.
 - no eval spec has a `judge` block.
 - `scripts/pipeline.py` exists for deterministic multi-step skills.
+- `skillctl publish <skill-dir> --dry-run` can validate a universal skill
+  without requiring platform-specific files.
 
 Security scan remains unchanged.
 
@@ -380,10 +425,15 @@ Modify:
 - `references/architecture-guide.md`
 - `references/pipeline-phases.md`
 - `references/phase2-eval-assessment.md`
+- `scripts/skillctl/publish.py` if its preflight currently assumes default-mode
+  files such as `install.sh`, `.claude-plugin/`, or slash-command triggers.
+- `scripts/tests/test_skillctl_publish.py` to cover publishing a universal
+  skill.
 
-No implementation source files need to change in the design phase. A later
-implementation plan should decide whether to add reusable templates for
-universal `run_evals.py` and universal documentation generation.
+The implementation plan should confirm whether `skillctl` already accepts the
+universal layout. If it does, no `skillctl` code change is needed. If not, update
+publish preflight to validate the universal contract instead of default-mode
+platform artifacts.
 
 ## Acceptance Criteria
 
@@ -396,12 +446,15 @@ The design is complete when:
 5. Generated universal skills remain usable across platforms via the same
    Python entry point.
 6. Eval coverage remains available through command-only regression checks.
-7. Existing default generation behavior is unchanged.
+7. Universal skills can be published and installed through `skillctl` without
+   adding platform-specific files to the generated skill.
+8. Existing default generation behavior is unchanged.
 
 ## Risks
 
-Universal mode trades away turnkey platform installation. This is intentional,
-but the README must make the single command obvious.
+Universal mode trades away per-skill turnkey platform installers. This is
+intentional, but the README must make both direct use and registry-based
+`skillctl install` obvious.
 
 Removing embedded LLM judge support from universal evals reduces semantic
 grading power for some writing-heavy skills. For those cases, command checks can
