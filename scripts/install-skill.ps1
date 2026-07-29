@@ -17,6 +17,8 @@ param(
     [switch]$Project,
     [switch]$DryRun,
     [switch]$Uninstall,
+    [switch]$FromRegistry,
+    [string]$SkillName,
     [switch]$Help
 )
 

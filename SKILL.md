@@ -446,6 +446,45 @@ The goal: the user who created the skill sends a one-liner to their colleague on
 
 **If the user says no**, that's fine — the skill is already installed locally and working. They can always share later.
 
+
+### Publish to GitHub Skill Store (New)
+
+After the skill is created and verified, it can be published to the global skill
+registry on GitHub for anyone to discover and install:
+
+```bash
+# Dry-run preflight check
+python3 scripts/skillctl/__main__.py publish <skill-dir> --dry-run
+
+# Full publish (requires GITHUB_TOKEN or GH_TOKEN)
+python3 scripts/skillctl/__main__.py publish <skill-dir> --org agent-skills
+```
+
+If `GITHUB_TOKEN` is set, the factory can prompt after creation:
+
+```
+Publish this skill to GitHub? (y/N)
+```
+
+On success:
+
+```
+✓ Published to agent-skills/{name} (v{version})
+Try: python3 scripts/skillctl/__main__.py install {name}
+```
+
+The publish flow:
+1. **Preflight** — validates SKILL.md, checks pipeline output compliance
+2. **Repo creation** — creates a public GitHub repo under the org
+3. **Push** — pushes skill content with semver tag (v{major}.{minor}.{patch})
+4. **Index registration** — adds the skill entry to the central `agent-skills/index` registry
+
+Users anywhere can then install with:
+
+```bash
+python3 scripts/skillctl/__main__.py install {skill-name}
+```
+
 ### Set Up a Team Skill Registry
 
 When a user mentions a team, organization, or colleagues — or when they ask about sharing skills at scale — offer to create a **team skill registry**. This is a shared git repo that acts as the central catalog where all team members publish and install skills.

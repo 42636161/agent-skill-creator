@@ -74,7 +74,13 @@ while [ $# -gt 0 ]; do
             ;;
         --project)   PROJECT_LEVEL=true ;;
         --all)       PLATFORM="" ;;
-        --dry-run)   DRY_RUN=true ;;
+        --from-registry)
+            USE_REGISTRY=true
+            if [ -n "${2:-}" ]; then
+                REGISTRY_TARGET="$2"
+                shift
+            fi
+            ;;
         --uninstall) UNINSTALL=true ;;
         -h|--help)   usage; exit 0 ;;
         -*)          error "Unknown option: $1"; exit 1 ;;
@@ -580,4 +586,12 @@ main() {
     fi
 }
 
+
+# --- Registry delegation (new: skillctl-based install) ---
+if [ "${USE_REGISTRY:-false}" = "true" ] && [ -n "${REGISTRY_TARGET:-}" ]; then
+    SKILLCTL="$(cd "$(dirname "$0")" && pwd)/__main__.py"
+    if [ -f "$SKILLCTL" ]; then
+        exec python3 "$SKILLCTL" install "$REGISTRY_TARGET"
+    fi
+fi
 main
