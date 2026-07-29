@@ -68,6 +68,30 @@ references/universal-standard.md
 This keeps existing behavior stable while giving users a clean path for
 platform-neutral skills.
 
+## Core Boundary Principle
+
+Universal mode draws a hard boundary between the generated skill and the skill
+lifecycle system:
+
+```text
+skill = capability package
+agent-skill-creator + skillctl = lifecycle manager
+```
+
+The generated skill contains only the files needed to understand, run, configure,
+and verify the capability. It does not contain installation logic, platform
+adapters, lifecycle automation, distribution commands, upgrade logic, or
+modification workflows.
+
+All distribution, installation, publishing, updating, migration, and
+regeneration belongs to agent-skill-creator and its `skillctl` tooling. If a
+platform-specific copy, symlink, conversion, registry write, or upgrade is
+needed, that work happens outside the generated skill package.
+
+This boundary is the main AI-utilization improvement: when an agent reads a
+generated skill, every file it sees is about capability use, not package
+lifecycle.
+
 ## Flag Behavior
 
 The `--universal` flag is parsed during input triage, alongside existing flags
@@ -147,6 +171,9 @@ Removed from universal output:
 - `install.sh`
 - shell bootstrap wrappers
 - PowerShell bootstrap wrappers
+- platform detection logic
+- auto-install logic
+- publish/update/search commands
 - `scripts/evolve.py`
 - staleness, dependency-health, schema-drift, and skill-document scripts
 - platform-specific activation examples
@@ -158,6 +185,7 @@ Not removed:
 - central registry publishing/installing through GitHub
 - generated skill metadata needed by `skillctl`, including `name`,
   `description`, and `metadata.version`
+- generated skill runtime requirements, such as `requirements.txt`
 
 Complex suites use the same principle: each component keeps only capability
 docs, executable logic, tests/evals, assets, and dependency declarations.
@@ -183,10 +211,15 @@ sales summary, group records by business dimensions, or verify data quality.
 
 ### Phase 5: Implementation
 
-Universal mode replaces the default file list with the universal file list.
-All normal quality requirements still apply: complete code, no placeholders,
-type hints where useful, focused error handling, validation, security scanning,
-and pipeline checks.
+Universal mode replaces the default file list with the universal file list. All
+normal quality requirements still apply: complete code, no placeholders, type
+hints where useful, focused error handling, validation, security scanning, and
+pipeline checks.
+
+The implementation rule is strict: if a generated file is primarily about
+installing, publishing, updating, modifying, migrating, adapting to an agent
+platform, or managing skill lifecycle state, it does not belong inside the
+generated universal skill.
 
 Generated files follow these roles:
 
@@ -201,6 +234,19 @@ Generated files follow these roles:
 | `evals/golden/` | Golden input cases |
 | `assets/` | Optional configs/templates |
 | `requirements.txt` | Third-party dependency declaration |
+
+Generated files must not include lifecycle managers. Those remain in
+agent-skill-creator:
+
+| Lifecycle concern | Owner |
+|---|---|
+| Search/discovery | `skillctl` |
+| Publishing | `skillctl publish` |
+| Installation | `skillctl install` or creator-side copy logic |
+| Updating | `skillctl update` |
+| Migration/regeneration | agent-skill-creator |
+| Platform placement | creator/installer side |
+| Skill modification | agent-skill-creator regenerates or migrates the package |
 
 ## AGENTS.md Design
 
@@ -344,20 +390,22 @@ Eval spec shape:
 }
 ```
 
-## Distribution And Installation Model
+## Distribution, Installation, And Modification Model
 
-Universal skills do not ship their own per-platform installer.
+Universal skills do not ship their own per-platform installer, updater, or
+modifier.
 
 A universal skill is a directory with a stable runtime contract. Copying or
 cloning that directory is sufficient for direct use. Every platform can use it
 by reading the files and running the same command.
 
-The GitHub-backed `skillctl` distribution path remains supported and should be
-the preferred discovery/install path when a registry is available:
+The GitHub-backed `skillctl` distribution path remains supported and is the
+preferred discovery/install/update path when a registry is available:
 
 ```bash
 python3 scripts/skillctl/__main__.py search <query>
 python3 scripts/skillctl/__main__.py install <skill-name>
+python3 scripts/skillctl/__main__.py update <skill-name>
 python3 scripts/skillctl/__main__.py publish <skill-dir>
 ```
 
@@ -365,6 +413,12 @@ python3 scripts/skillctl/__main__.py publish <skill-dir>
 installer concern. That does not make the generated skill platform-bound,
 because the skill package itself does not contain platform adapters, shell
 wrappers, marketplace manifests, or platform-specific activation syntax.
+
+Skill modification also happens outside the generated package. The user returns
+to agent-skill-creator with new materials, changed requirements, or an existing
+skill directory. The creator then regenerates, migrates, or rewrites the skill
+package. A universal generated skill should not ship `evolve.py`, self-modifying
+scripts, or long-running maintenance loops.
 
 README.md should be brief:
 
@@ -376,7 +430,8 @@ README.md should be brief:
 ## Install
 
 Use this directory directly, clone it from source, or install it from a registry
-with `skillctl install <skill-name>` when the registry is available.
+with `skillctl install <skill-name>` when the registry is available. Use
+agent-skill-creator to modify, migrate, or regenerate the skill.
 
 ## Run
 
@@ -405,6 +460,9 @@ Validation should confirm:
 - no `.claude-plugin/` directory exists.
 - no `install.sh` exists.
 - no shell/PowerShell bootstrap wrappers exist at the skill root.
+- no publish/install/update/search CLI files exist inside the generated skill.
+- no self-modification or lifecycle-maintenance scripts exist inside the
+  generated skill.
 - no generated eval criterion has `type: "llm-judge"`.
 - no eval spec has a `judge` block.
 - `scripts/pipeline.py` exists for deterministic multi-step skills.
@@ -448,7 +506,9 @@ The design is complete when:
 6. Eval coverage remains available through command-only regression checks.
 7. Universal skills can be published and installed through `skillctl` without
    adding platform-specific files to the generated skill.
-8. Existing default generation behavior is unchanged.
+8. Skill modification, migration, upgrade, and distribution are owned by
+   agent-skill-creator and `skillctl`, not by generated skill packages.
+9. Existing default generation behavior is unchanged.
 
 ## Risks
 
