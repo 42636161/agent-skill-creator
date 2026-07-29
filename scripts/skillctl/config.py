@@ -12,7 +12,7 @@ AUDIT_DIR = SKILLCTL_DIR / "audit"
 CACHE_DIR = SKILLCTL_DIR / "cache"
 
 DEFAULT_CONFIG = {
-    "index_repo": "https://github.com/agent-skills/index.git",
+    "index_repo": "https://github.com/42636161/skillhub.git",
     "auto_update_index": True,
     "language": "auto",
     "llm_provider": None,

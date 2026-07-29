@@ -11,7 +11,7 @@ from pathlib import Path
 def cmd_publish(args: argparse.Namespace) -> int:
     """将技能发布到 GitHub 并注册到索引仓库"""
     skill_dir = Path(args.skill_dir).expanduser().resolve()
-    org = args.org or "agent-skills"
+    org = args.org or "42636161"
 
     if not skill_dir.exists():
         print(f"错误：技能目录不存在：{skill_dir}")
