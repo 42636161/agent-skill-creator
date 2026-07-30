@@ -280,6 +280,30 @@ def validate_skill(skill_path: str) -> dict:
     }
 
 
+def check_universal_layout(skill_path: str) -> list[dict]:
+    """Return a list of issue dicts for universal layout violations."""
+    issues = []
+    root = Path(skill_path)
+    forbidden = [
+        (".claude-plugin", "Claude-specific plugin manifest"),
+        ("install.sh", "Platform installer (use skillctl instead)"),
+        ("scripts/evolve.py", "Self-maintenance script"),
+        ("scripts/staleness_check.py", "Lifecycle maintenance script"),
+        ("scripts/review_staleness.py", "Lifecycle maintenance script"),
+        ("scripts/dependency_health.py", "Lifecycle maintenance script"),
+        ("scripts/schema_drift.py", "Lifecycle maintenance script"),
+        ("scripts/skill_document.py", "Lifecycle maintenance script"),
+    ]
+    for path_str, reason in forbidden:
+        if (root / path_str).exists():
+            issues.append({
+                "level": "error",
+                "check": "universal-layout",
+                "message": f"{path_str}: {reason}",
+            })
+    return issues
+
+
 def _print_human_readable(result: dict, skill_path: str) -> None:
     """
     Print validation results in a human-readable format.
@@ -333,8 +357,16 @@ def main() -> None:
 
     skill_path = sys.argv[1]
     use_json = "--json" in sys.argv
+    check_universal = "--check-universal" in sys.argv
 
     result = validate_skill(skill_path)
+
+    # Universal layout check
+    if check_universal:
+        extra_issues = check_universal_layout(skill_path)
+        for issue in extra_issues:
+            result["errors"].append(issue["message"])
+        result["valid"] = len(result["errors"]) == 0
 
     if use_json:
         print(json.dumps(result, indent=2))
