@@ -37,6 +37,8 @@ User invokes `/agent-skill-creator` followed by their input:
 /agent-skill-creator Here's our API docs: https://api.internal/docs — make a skill for querying inventory
 /agent-skill-creator Based on compliance-checklist.pdf, create a skill for SOX audits
 /agent-skill-creator --mcp-audit https://github.com/vendor/mcp-server — we pay for this data, what skills can we build on it?
+/agent-skill-creator --universal Every week I pull sales data, clean it, and generate a report
+/agent-skill-creator --universal [drops files]
 ```
 
 The user can also drop artifacts, paste URLs, share screenshots, or provide minimal context:
@@ -228,6 +230,9 @@ unchanged. See `references/phase2-artifact-assessment.md` for details.
 - `--no-artifact` anywhere in the user's prompt: skip the assessment entirely and generate the skill without any artifact template, exactly as v4 did. Strip the token from the prompt before passing it to Phase 1.
 - `--artifact <name>` (where `<name>` is `line-chart`, `bar-chart`, `kpi-cards`, or `data-table`): skip the detector and inline the named template directly. If `<name>` is not one of the four valid names, reject with an error listing the four valid values and stop. Strip the flag and value from the prompt before passing it to Phase 1.
 - `--no-eval` anywhere in the user's prompt: skip the Eval Criteria Definition step (below); the generated skill carries no `evals/` directory and no `run_evals.py`. Strip the token from the prompt before passing it to Phase 1.
+- `--universal` anywhere in the user's prompt: generate a platform-agnostic
+  skill. Follow `references/universal-standard.md` in Phases 3-5. Strip the
+  token from the prompt before passing it to Phase 1.
 
 When neither flag is present, call the detector and let it decide.
 
@@ -277,6 +282,12 @@ Create all files in this order:
 10. Run **validation** against the official spec, **security scan** for hardcoded keys, instruction-body injection, and undeclared endpoints, **`python3 <skill>/scripts/check_pipeline.py <skill>`** (no compile or undeclared-dependency errors), and — if an eval spec was emitted — `python3 <skill>/scripts/run_evals.py --validate` (must report `VALID`)
 11. **Auto-install on the current platform** (see below)
 12. Report results to user with clear next steps, including the eval/optimize one-liner from `references/phase2-eval-assessment.md`
+
+When `--universal` is active, replace the default file list with the universal
+file list from `references/universal-standard.md` Section 1. Generate AGENTS.md
+following Section 2, SKILL.md following Section 3, eval spec following Section 5.
+Skip Step 8 (install.sh), Step 8.5 (.claude-plugin/), and Step 11 (auto-install).
+Use the simplified eval harness from Section 5 instead of `scripts/run_evals_template.py`.
 
 ### Auto-Install After Creation
 
@@ -666,6 +677,11 @@ See `references/architecture-guide.md` for detailed decision framework.
 ## Cross-Platform Support
 
 Generated skills work across 17 tools in 3 tiers. Every generated skill outputs both **SKILL.md** (skill definition, ~15 tools) and **AGENTS.md** (instruction file, ~15 tools) to maximize reach.
+
+In universal mode, the generated skill is platform-agnostic — it has no
+platform-specific code or artifacts. Every platform accesses it the same way:
+`python3 scripts/pipeline.py`. Platform-specific installation is handled by
+`skillctl` outside the generated package.
 
 ### Tier 1 — Native SKILL.md (reads directly, no conversion)
 
