@@ -1,0 +1,569 @@
+#!/usr/bin/env python3
+"""
+Universal eval runner shipped inside every generated skill as scripts/run_evals.py.
+
+A generated skill carries its own loss function in evals/<skill>.eval.md: a set
+of binary command checks plus a handful of golden cases. This runner turns that
+spec into a deterministic regression gate, a shape validator, and — when the
+spec declares a `run` command — an end-to-end rollout harness that executes the
+skill on each golden input and scores the real output. In rollout mode each
+produced output is also compared against the case's promoted `expected` baseline
+(JSON-value equality; per-case `compare_ignore` drops volatile top-level keys
+like timestamps, `compare: "none"` opts out) — divergence is reported as a
+`<baseline>` regression and exits 1. Golden cases marked `"split": "test"` are
+a holdout: skipped by default, never promoted, scored only with
+--include-holdout (release/CI scoring) — keep them away from any optimization
+loop.
+
+Modes:
+    python3 scripts/run_evals.py                 # run command checks against the
+                                                 # golden baseline; non-zero exit
+                                                 # if any fail
+    python3 scripts/run_evals.py --validate      # check the spec is well-formed
+    python3 scripts/run_evals.py --output OUT [--case ID]
+                                                 # score a real produced output
+    python3 scripts/run_evals.py --rollout [--promote] [--timeout N] [--case ID]
+                                                 # run the skill (spec's `run`
+                                                 # command) on each golden input,
+                                                 # then score the produced output;
+                                                 # --promote captures the first
+                                                 # passing output as the baseline
+                                                 # for pending-first-green cases
+    python3 scripts/run_evals.py --json          # machine-readable result
+
+The spec's optional `run` field is a command template binding {input} (the golden
+case input path) and {output} (a produced-output path). Example:
+    "run": "python3 scripts/run_pipeline.py --input {input} --output {output}"
+
+Exit codes:
+    0 - all checks passed (or --validate found no errors, or --rollout had nothing
+        to run because the spec declares no `run` command)
+    1 - a check failed, a rollout case errored, or the spec is malformed
+    2 - no eval spec found
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import re
+import shlex
+import shutil
+import subprocess
+import sys
+import tempfile
+import time
+from pathlib import Path
+
+VALID_TYPES = ("command",)
+MIN_GOLDEN_CASES = 3
+OUTPUT_PLACEHOLDER = "{output}"
+INPUT_PLACEHOLDER = "{input}"
+DEFAULT_ROLLOUT_TIMEOUT = 120
+
+_JSON_BLOCK = re.compile(r"```json\s*\n(.*?)\n```", re.DOTALL)
+
+
+def find_spec(skill_dir: Path) -> Path | None:
+    """Return the first evals/*.eval.md under skill_dir, or None if absent."""
+    evals_dir = skill_dir / "evals"
+    if not evals_dir.is_dir():
+        return None
+    specs = sorted(evals_dir.glob("*.eval.md"))
+    return specs[0] if specs else None
+
+
+def parse_spec(spec_path: Path) -> dict:
+    """Extract and parse the first fenced ```json block from an eval spec.
+
+    Raises:
+        ValueError: if no JSON block is present or it does not parse.
+    """
+    text = spec_path.read_text(encoding="utf-8")
+    match = _JSON_BLOCK.search(text)
+    if not match:
+        raise ValueError(f"{spec_path}: no ```json block found")
+    try:
+        return json.loads(match.group(1))
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"{spec_path}: malformed JSON block: {exc}") from exc
+
+
+def validate_spec(spec: dict, skill_dir: Path) -> list[str]:
+    """Return a list of shape errors for the spec (empty list means valid)."""
+    errors: list[str] = []
+
+    if not spec.get("skill"):
+        errors.append("missing 'skill' name")
+
+    # Optional `run` command (enables --rollout). Absent is fine; if present it
+    # must be a non-empty string that knows where to write the produced output.
+    if "run" in spec:
+        run_cmd = spec.get("run")
+        if not isinstance(run_cmd, str) or not run_cmd.strip():
+            errors.append("'run' must be a non-empty string when present")
+        elif OUTPUT_PLACEHOLDER not in run_cmd:
+            errors.append(f"'run' must contain the {OUTPUT_PLACEHOLDER} placeholder")
+
+    criteria = spec.get("criteria")
+    if not isinstance(criteria, list) or not criteria:
+        errors.append("'criteria' must be a non-empty list")
+        criteria = []
+    for i, crit in enumerate(criteria):
+        where = f"criteria[{i}]"
+        if not crit.get("id"):
+            errors.append(f"{where}: missing 'id'")
+        if not crit.get("text"):
+            errors.append(f"{where}: missing 'text'")
+        ctype = crit.get("type")
+        if ctype not in VALID_TYPES:
+            errors.append(f"{where}: 'type' must be one of {VALID_TYPES}, got {ctype!r}")
+        if ctype == "command" and not crit.get("cmd"):
+            errors.append(f"{where}: command criterion needs a non-empty 'cmd'")
+
+    golden = spec.get("golden")
+    if not isinstance(golden, list):
+        errors.append("'golden' must be a list")
+        golden = []
+    if len(golden) < MIN_GOLDEN_CASES:
+        errors.append(f"need at least {MIN_GOLDEN_CASES} golden cases, found {len(golden)}")
+    for i, case in enumerate(golden):
+        where = f"golden[{i}]"
+        if not case.get("id"):
+            errors.append(f"{where}: missing 'id'")
+        inp = case.get("input")
+        if not inp:
+            errors.append(f"{where}: missing 'input'")
+        elif not (skill_dir / "evals" / inp).exists():
+            errors.append(f"{where}: input file not found: evals/{inp}")
+        expected = case.get("expected")
+        if expected is not None and not (skill_dir / "evals" / expected).exists():
+            errors.append(f"{where}: expected file not found: evals/{expected}")
+        if expected is None and case.get("expected_status") != "pending-first-green":
+            errors.append(
+                f"{where}: null 'expected' must be marked expected_status='pending-first-green'"
+            )
+        if case.get("split") not in (None, "val", "test"):
+            errors.append(f"{where}: 'split' must be 'val' or 'test', got {case.get('split')!r}")
+        if case.get("compare") not in (None, "exact", "none"):
+            errors.append(f"{where}: 'compare' must be 'exact' or 'none', got {case.get('compare')!r}")
+        ignore = case.get("compare_ignore")
+        if ignore is not None and (
+            not isinstance(ignore, list) or not all(isinstance(k, str) for k in ignore)
+        ):
+            errors.append(f"{where}: 'compare_ignore' must be a list of key names")
+
+    if golden and all(
+        case.get("expected_status") == "pending-first-green" for case in golden
+    ):
+        print(
+            "WARNING: every golden case is pending-first-green; the first rollout "
+            "validates nothing until baselines are promoted with --promote",
+            file=sys.stderr,
+        )
+
+    if golden and not any(case.get("split") == "test" for case in golden):
+        print(
+            "NOTE: no holdout case (split: 'test'); consider reserving one golden "
+            "case an optimization loop never sees",
+            file=sys.stderr,
+        )
+
+    return errors
+
+
+def _run_one(cmd: str, output_path: Path | None) -> bool:
+    """Run a single command check once. {output} is bound to output_path.
+
+    Returns True on exit code 0. Retries once on failure.
+    """
+    if OUTPUT_PLACEHOLDER in cmd:
+        if output_path is None:
+            return False
+        bound = cmd.replace(OUTPUT_PLACEHOLDER, _quote_path(output_path))
+    else:
+        bound = cmd
+    bound = _resolve_interpreter(bound)
+    for _ in range(2):
+        proc = subprocess.run(bound, shell=True, capture_output=True)  # noqa: S602
+        if proc.returncode == 0:
+            return True
+    return False
+
+
+def run_command_checks(
+    spec: dict,
+    skill_dir: Path,
+    output: Path | None = None,
+    only_case: str | None = None,
+    include_holdout: bool = False,
+) -> dict:
+    """Run every command criterion against each applicable golden case.
+
+    By default {output} binds to each case's `expected` baseline file. When
+    `output` is given it binds to that path instead (scoring a real run); use
+    `only_case` to restrict scoring to one case. Cases marked `split: "test"`
+    are held out unless `include_holdout` is set.
+
+    Returns a result dict with passed/failed counts, held-out case ids, and
+    per-check detail.
+    """
+    evals_dir = skill_dir / "evals"
+    command_criteria = [c for c in spec.get("criteria", []) if c.get("type") == "command"]
+    results: list[dict] = []
+    held_out: list[str] = []
+    passed = failed = skipped = 0
+
+    for case in spec.get("golden", []):
+        case_id = case.get("id", "?")
+        if only_case and case_id != only_case:
+            continue
+        if case.get("split") == "test" and not include_holdout:
+            held_out.append(case_id)
+            continue
+        if output is not None:
+            bound_output: Path | None = output
+        else:
+            bound_output = _effective_expected(evals_dir, case)
+
+        for crit in command_criteria:
+            needs_output = OUTPUT_PLACEHOLDER in crit["cmd"]
+            if needs_output and bound_output is None:
+                skipped += 1
+                results.append({"case": case_id, "criterion": crit["id"], "status": "skipped"})
+                continue
+            ok = _run_one(crit["cmd"], bound_output)
+            passed += ok
+            failed += not ok
+            results.append(
+                {"case": case_id, "criterion": crit["id"], "status": "pass" if ok else "fail"}
+            )
+
+    return {
+        "passed": passed,
+        "failed": failed,
+        "skipped": skipped,
+        "held_out": held_out,
+        "checks": results,
+    }
+
+
+def _expected_baseline_path(evals_dir: Path, case: dict) -> Path:
+    """Where a promoted baseline is written for a case.
+
+    Uses the case's declared `expected` path when present; otherwise the
+    conventional golden/<case-id>/expected.json.
+    """
+    expected = case.get("expected")
+    if expected:
+        return evals_dir / expected
+    return evals_dir / "golden" / case.get("id", "case") / "expected.json"
+
+
+def _effective_expected(evals_dir: Path, case: dict) -> Path | None:
+    """The baseline that gates this case, or None if none exists yet.
+
+    A declared `expected` wins; otherwise a previously --promote'd file at the
+    conventional path counts, so promotion arms the regression gate without
+    requiring a manual spec edit.
+    """
+    declared = case.get("expected")
+    if declared:
+        return evals_dir / declared
+    conventional = evals_dir / "golden" / case.get("id", "case") / "expected.json"
+    return conventional if conventional.exists() else None
+
+
+def _quote_path(path: Path) -> str:
+    """Shell-quote a path for the platform shell.
+
+    shlex.quote is POSIX-only: under Windows shell=True (cmd.exe) its single
+    quotes are passed through literally and corrupt the path. cmd.exe wants
+    double quotes.
+    """
+    if os.name == "nt":
+        return f'"{path}"'
+    return shlex.quote(str(path))
+
+
+def _resolve_interpreter(bound: str) -> str:
+    """Swap a leading 'python3' for the running interpreter when python3 is
+    not on PATH (Windows ships 'python'/'py', not 'python3')."""
+    if bound.startswith("python3 ") and shutil.which("python3") is None:
+        return f'"{sys.executable}"' + bound[len("python3"):]
+    return bound
+
+
+def _run_skill(
+    run_cmd: str,
+    input_path: Path | None,
+    output_path: Path,
+    skill_dir: Path,
+    timeout: int,
+) -> bool:
+    """Execute the skill's `run` command for one case.
+
+    Binds {input}/{output} placeholders and runs from the skill root. Returns
+    True only on exit code 0 within the timeout.
+    """
+    bound = run_cmd.replace(OUTPUT_PLACEHOLDER, _quote_path(output_path))
+    if INPUT_PLACEHOLDER in bound:
+        if input_path is None:
+            return False
+        bound = bound.replace(INPUT_PLACEHOLDER, _quote_path(input_path))
+    bound = _resolve_interpreter(bound)
+    try:
+        proc = subprocess.run(  # noqa: S602
+            bound, shell=True, cwd=str(skill_dir), capture_output=True,
+            timeout=timeout,
+        )
+    except subprocess.TimeoutExpired:
+        return False
+    return proc.returncode == 0
+
+
+def _baseline_matches(produced: Path, expected: Path, ignore_keys: list[str] | None = None) -> bool:
+    """True when a produced output is equivalent to the promoted baseline.
+
+    Byte equality first; then JSON-value equality (formatting-insensitive,
+    with `ignore_keys` dropped from the top level of both sides — for volatile
+    fields like timestamps); then whitespace-trimmed text equality. Binary
+    outputs that differ in bytes are a mismatch.
+    """
+    p, e = produced.read_bytes(), expected.read_bytes()
+    if p == e:
+        return True
+    try:
+        pj, ej = json.loads(p), json.loads(e)
+        if ignore_keys and isinstance(pj, dict) and isinstance(ej, dict):
+            pj = {k: v for k, v in pj.items() if k not in ignore_keys}
+            ej = {k: v for k, v in ej.items() if k not in ignore_keys}
+        return pj == ej
+    except (ValueError, UnicodeDecodeError):
+        pass
+    try:
+        return p.decode("utf-8").strip() == e.decode("utf-8").strip()
+    except UnicodeDecodeError:
+        return False
+
+
+def run_rollout(
+    spec: dict,
+    skill_dir: Path,
+    *,
+    promote: bool = False,
+    only_case: str | None = None,
+    timeout: int = DEFAULT_ROLLOUT_TIMEOUT,
+    include_holdout: bool = False,
+) -> dict:
+    """Run the skill end-to-end on each golden input, then score the real output.
+
+    For each golden case the spec's `run` command produces an output into a temp
+    file; that output is then scored through the same command criteria used by
+    run_command_checks, AND compared against the case's promoted `expected`
+    baseline (the regression gate; per-case `compare: "none"` opts out for
+    nondeterministic outputs). When `promote` is set, a pending-first-green case
+    whose run and checks all pass has its produced output captured as the
+    `expected` baseline. Cases marked `split: "test"` are held out unless
+    `include_holdout` is set, and are never promoted.
+
+    Returns {passed, failed, errors, regressions, promoted, held_out, checks,
+    duration_s}. `errors` counts cases whose `run` command itself failed or
+    timed out (their checks are not scored); `regressions` counts outputs that
+    passed the command checks but diverged from the promoted baseline.
+    """
+    evals_dir = skill_dir / "evals"
+    run_cmd = spec.get("run")
+    passed = failed = errors = regressions = 0
+    started = time.monotonic()
+    promoted: list[str] = []
+    held_out: list[str] = []
+    checks: list[dict] = []
+
+    for case in spec.get("golden", []):
+        case_id = case.get("id", "?")
+        if only_case and case_id != only_case:
+            continue
+        if case.get("split") == "test" and not include_holdout:
+            held_out.append(case_id)
+            continue
+
+        inp = case.get("input")
+        input_path = (evals_dir / inp) if inp else None
+
+        with tempfile.TemporaryDirectory() as td:
+            produced = Path(td) / "output"
+            ok = _run_skill(run_cmd, input_path, produced, skill_dir, timeout)
+            if not ok or not produced.exists():
+                errors += 1
+                checks.append({"case": case_id, "criterion": "<run>", "status": "error"})
+                continue
+
+            scored = run_command_checks(
+                spec, skill_dir, output=produced, only_case=case_id,
+                include_holdout=include_holdout,
+            )
+            passed += scored["passed"]
+            failed += scored["failed"]
+            checks.extend(scored["checks"])
+
+            # Regression gate: the produced output must still be equivalent to
+            # the promoted baseline, not merely pass the shape checks.
+            baseline = _effective_expected(evals_dir, case)
+            if baseline is not None and case.get("compare", "exact") != "none":
+                matches = _baseline_matches(produced, baseline, case.get("compare_ignore"))
+                regressions += not matches
+                checks.append({
+                    "case": case_id,
+                    "criterion": "<baseline>",
+                    "status": "pass" if matches else "regression",
+                })
+
+            # A case is only pending until a baseline exists — a promoted
+            # baseline is never overwritten by a later --promote run.
+            is_pending = baseline is None and (
+                case.get("expected_status") == "pending-first-green"
+            )
+            if (
+                promote and is_pending and case.get("split") != "test"
+                and scored["failed"] == 0 and scored["passed"] > 0
+            ):
+                dest = _expected_baseline_path(evals_dir, case)
+                dest.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copyfile(produced, dest)
+                promoted.append(case_id)
+
+    return {
+        "passed": passed,
+        "failed": failed,
+        "errors": errors,
+        "regressions": regressions,
+        "promoted": promoted,
+        "held_out": held_out,
+        "checks": checks,
+        "duration_s": round(time.monotonic() - started, 3),
+    }
+
+
+def _default_skill_dir() -> Path:
+    """The skill root is the parent of the scripts/ directory holding this file."""
+    return Path(__file__).resolve().parent.parent
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description="Universal eval harness")
+    parser.add_argument("skill_dir")
+    parser.add_argument("--validate", action="store_true", help="Only check the spec is well-formed.")
+    parser.add_argument("--output", default=None, help="Produced output to score against (binds {output}).")
+    parser.add_argument("--case", default=None, help="Restrict scoring to this golden case id.")
+    parser.add_argument(
+        "--rollout",
+        action="store_true",
+        help="Run the skill (spec's 'run' command) on each golden input, then score the output.",
+    )
+    parser.add_argument(
+        "--promote",
+        action="store_true",
+        help="With --rollout: capture the first passing output as the baseline for pending-first-green cases.",
+    )
+    parser.add_argument(
+        "--timeout",
+        type=int,
+        default=DEFAULT_ROLLOUT_TIMEOUT,
+        help=f"With --rollout: per-case run timeout in seconds (default {DEFAULT_ROLLOUT_TIMEOUT}).",
+    )
+    parser.add_argument(
+        "--include-holdout",
+        action="store_true",
+        help="Also score golden cases marked split='test' (normally held out; "
+        "use only for release scoring, never inside an optimization loop).",
+    )
+    parser.add_argument("--json", action="store_true", help="Emit machine-readable JSON.")
+    args = parser.parse_args(argv)
+
+    skill_dir = Path(args.skill_dir).resolve()
+
+    spec_path = find_spec(skill_dir)
+    if spec_path is None:
+        msg = f"no evals/*.eval.md found under {skill_dir}"
+        print(json.dumps({"error": msg}) if args.json else f"ERROR: {msg}", file=sys.stderr)
+        return 2
+
+    try:
+        spec = parse_spec(spec_path)
+    except ValueError as exc:
+        print(json.dumps({"error": str(exc)}) if args.json else f"ERROR: {exc}", file=sys.stderr)
+        return 1
+
+    errors = validate_spec(spec, skill_dir)
+    if args.validate:
+        if args.json:
+            print(json.dumps({"valid": not errors, "errors": errors}, indent=2))
+        elif errors:
+            print(f"INVALID {spec_path.name}:")
+            for err in errors:
+                print(f"  - {err}")
+        else:
+            print(f"VALID {spec_path.name}")
+        return 1 if errors else 0
+
+    if errors:
+        # A malformed spec cannot be run honestly.
+        head = f"ERROR: {spec_path.name} is malformed; run --validate"
+        print(json.dumps({"error": head, "errors": errors}) if args.json else head, file=sys.stderr)
+        return 1
+
+    if args.rollout:
+        if not spec.get("run"):
+            msg = "rollout unavailable: spec has no 'run' command"
+            print(json.dumps({"rollout": "unavailable", "reason": msg}) if args.json else msg)
+            return 0
+
+        result = run_rollout(
+            spec, skill_dir, promote=args.promote, only_case=args.case,
+            timeout=args.timeout, include_holdout=args.include_holdout,
+        )
+        if args.json:
+            print(json.dumps(result, indent=2))
+        else:
+            for check in result["checks"]:
+                print(f"  [{check['status']:>10}] {check['case']} :: {check['criterion']}")
+            summary = (
+                f"\nrollout: {result['passed']} passed, {result['failed']} failed, "
+                f"{result['errors']} errored, {result['regressions']} regressed"
+            )
+            print(summary)
+            if result["held_out"]:
+                print(
+                    f"held out (split=test, use --include-holdout): "
+                    f"{', '.join(result['held_out'])}"
+                )
+            if result["promoted"]:
+                print(f"promoted baselines: {', '.join(result['promoted'])}")
+        rollout_failed = bool(
+            result["failed"] or result["errors"] or result["regressions"]
+        )
+        return 1 if rollout_failed else 0
+
+    output = Path(args.output).resolve() if args.output else None
+    result = run_command_checks(
+        spec, skill_dir, output=output, only_case=args.case,
+        include_holdout=args.include_holdout,
+    )
+
+    if args.json:
+        print(json.dumps(result, indent=2))
+    else:
+        for check in result["checks"]:
+            print(f"  [{check['status']:>7}] {check['case']} :: {check['criterion']}")
+        print(
+            f"\ncommand checks: {result['passed']} passed, "
+            f"{result['failed']} failed, {result['skipped']} skipped"
+        )
+
+    return 1 if result["failed"] else 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
