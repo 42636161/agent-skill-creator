@@ -23,6 +23,24 @@ This design adds an opt-in universal output mode for users who want generated
 skills to be platform-agnostic, compact, and directly usable by any agent
 runtime that can read files and run scripts.
 
+## Design Sources
+
+This design incorporates findings from `2026-07-29-user-quality-evaluation-design.md`,
+which evaluates generated skills from the agent perspective and the end-user
+perspective. The following universal findings (abstracted from CRM-sample
+observations) drive changes below:
+
+| Finding ID | Summary | Impact |
+|---|---|---|
+| B-1 | Tool vs Skill boundary: factory treats all inputs the same; some are deterministic automation, others carry domain judgment | Phase 2 Design, Phase 3, Phase 5 templates |
+| A-a-4 | Agent execution guidance is implicit: SKILL.md has CLI reference but no structured behavior map | SKILL.md Design — new sections |
+| B-3 | Domain knowledge (aliases, thresholds) hardcoded in Python instead of separate data files | Phase 5 Implementation rules |
+| A-a-2 | Error paths produce silent defaults instead of structured diagnostics | Phase 5 Implementation rules |
+| A-a-1 | Trigger examples only cover author-language speech, not fuzzy user expressions | Phase 4 Detection |
+| A-b-1 | Output presentation depends on agent guesswork rather than skill guidance | SKILL.md Design — Agent behavior |
+| A-b-2 | Configurable parameters invisible to users in conversation | SKILL.md Design — Config section |
+| A-b-6 | Feature discovery is fully passive; users never learn unrequested capabilities | SKILL.md Design — Feature discovery |
+
 ## Goal
 
 Add a `--universal` generation mode that produces skills with no agent-platform
@@ -121,10 +139,50 @@ Interactions:
 No behavioral change. Discovery still reads user material, derives intent,
 checks for existing data sources, and decides the data/API strategy.
 
+### Phase 2: Tool vs Skill Decision
+
+Before any eval or architecture work, the factory must classify what it is
+building. This decision drives every subsequent phase.
+
+**Tool** — a deterministic pipeline that runs a script when the user mentions a
+specific task. The agent's role is caller: parse user input into command
+parameters, run, read output, relay to user. No domain judgment required.
+
+- Example: CSV dedup, SQL formatter, JSON validator
+- Agent role: caller
+- Output: thin SKILL.md with command reference, no conversation guidance
+
+**Skill** — a domain-aware plan that embodies judgment rules, edge-case
+heuristics, default interpretations, and presentation conventions. The agent's
+role is domain doer: interpret user intent, decide which analysis path to take,
+surface diagnostics, guide the conversation.
+
+- Example: CRM report generator with data quality checks, compliance reviewer
+- Agent role: domain doer
+- Output: full SKILL.md with agent behavior mapping, diagnostics, config
+  transparency, and feature discovery
+
+The factory previously treated all created outputs as "skill" but produced the
+"tool" template (command reference only), leaving the agent to guess the domain
+intent. Universal mode should produce the correct template for each class.
+
+Rules:
+
+- Classify during Phase 2 after intent derivation is complete.
+- If no domain interpretation required beyond "parse params → execute → return
+  output", classify as tool.
+- If the creator material includes judgment rules, multiple analysis paths,
+  heuristics, or domain conventions, classify as skill.
+- Use the corresponding template set for SKILL.md and AGENTS.md in Phase 5.
+
 ### Phase 2: Design
 
 Universal mode keeps binary eval design but restricts eval criteria to
 deterministic command checks.
+
+Both tool and skill use command-only eval criteria, but skill evaluation adds
+golden cases that test domain judgment (e.g. correctly flagging suspicious
+data vs. silent passthrough).
 
 Rules:
 
@@ -133,6 +191,8 @@ Rules:
 - Do not generate a `judge` block.
 - Keep the golden-case strategy: at least three golden cases, with one
   `split: "test"` holdout unless `--no-eval` is active.
+- For skill-class generated outputs, at least one golden case should exercise a
+  chain of inputs that tests domain judgment — not just structural correctness.
 
 Rationale: command checks are platform-neutral. Embedded judge backends,
 subscription-based grading, API-key fallbacks, and model-comparison flows create
@@ -193,25 +253,58 @@ docs, executable logic, tests/evals, assets, and dependency declarations.
 ### Phase 4: Detection
 
 Universal mode uses semantic capability matching instead of platform trigger
-syntax.
+syntax, and covers fuzzy/real-world user expressions beyond the skill author's
+own phrasing.
 
 Rules:
 
 - The `description` frontmatter is the primary activation signal.
 - Do not write slash-command trigger grammar into generated docs.
 - Do not mention platform names as part of activation.
-- Use natural-language "when to use this" examples that map to user intent.
+- Generate natural-language activation examples that cover:
+  * explicit user requests (task name)
+  * implicit requests (user shows data without saying what to do)
+  * domain verbs without domain nouns, in the user's primary language
+  * English and the user's primary language as appropriate
+- For skill-class outputs, also generate a transparency cue: a one-sentence
+  activation alert that the agent can relay to the user so the user knows a
+  skill was invoked.
 
-Example style:
+Tool example:
 
 ```text
-Use this skill when the user asks to clean exported CRM data, produce a weekly
-sales summary, group records by business dimensions, or verify data quality.
+Use this tool when the user asks to deduplicate a CSV file, remove exact
+duplicate rows, or clean up a messy export. If the user is not sure what
+kind of dedup they need, this tool validates exact-match deduplication only.
+```
+
+Skill example:
+
+```text
+Activate this skill when: the user provides a CRM export and asks to clean
+it, generate a weekly summary, check data quality, or break down sales by
+dimension. This skill handles common CRM export formats and multiple column
+name languages.
+
+If the user drops a file without saying what they want, start by running the
+full pipeline and presenting the summary — then offer to drill into specific
+dimensions.
+
+Activation alert: "Running CRM data check — detecting columns and preparing
+report."
+
+Anticipate fuzzy requests in the user's spoken language: e.g. "帮我看看这个
+表格" (user shows a CRM export), "整理一下这周的数" (weekly report), "the
+data from our Salesforce export looks off" (data quality check).
 ```
 
 ### Phase 5: Implementation
 
-Universal mode replaces the default file list with the universal file list. All
+Universal mode replaces the default file list with the universal file list.
+Tool and skill outputs share the same file layout but differ in section
+coverage. All normal quality requirements still apply: complete code, no
+placeholders, type hints where useful, focused error handling, validation,
+security scanning, and pipeline checks. All
 normal quality requirements still apply: complete code, no placeholders, type
 hints where useful, focused error handling, validation, security scanning, and
 pipeline checks.
@@ -248,10 +341,36 @@ agent-skill-creator:
 | Platform placement | creator/installer side |
 | Skill modification | agent-skill-creator regenerates or migrates the package |
 
+Additional rules for both tool and skill:
+
+- **Domain knowledge as data.** If the skill needs column-name aliases,
+  threshold values, default behaviors, type mappings, or language-specific
+  translations, store them as a structured data file under `assets/` (JSON or
+  YAML), not as hardcoded constants in Python scripts. Processing code reads
+  from the data file. This makes knowledge independently verifiable,
+  extendable, and auditable without touching code.
+
+- **Structured diagnostic output on failure.** The pipeline must produce
+  structured diagnostic information when it cannot process input, not silent
+  defaults or empty JSON. At minimum the diagnostic must contain: which input
+  data was unrecognized, what the closest valid alternative was, and what the
+  agent or user can do to fix it. This allows the agent to relay useful
+  guidance rather than guessing why the output is empty.
+
+- **One entry point, but parameter derivation rules in prose.** The happy-path
+  command stays. For skill-class outputs, the SKILL.md also includes a
+  structured parameter derivation section that tells the agent where each
+  command parameter should come from — user input, data inspection, or default
+  — and how to resolve ambiguity.
+
 ## AGENTS.md Design
 
-In universal mode, AGENTS.md should be compact and intentionally non-duplicative.
-It is a dispatch card, not the full manual.
+In universal mode, AGENTS.md should be compact and intentionally
+non-duplicative. It is a dispatch card, not the full manual.
+
+For tool-class outputs, the tool sections below suffice. For skill-class
+outputs, add the activation alert sentence from Phase 4 and the output
+presentation rule (one sentence about what the agent should lead with).
 
 Required shape:
 
@@ -263,6 +382,12 @@ Required shape:
 ## What it does
 
 <2 sentences. Describe the high-level capability for dispatch.>
+<For skill-class: one sentence activation alert.>
+
+## Output
+
+<For skill-class: one sentence on how to present results.
+"Lead with the summary figures, then offer to drill into any dimension.">
 
 ## How to run it
 
@@ -286,7 +411,8 @@ Rules:
 
 ## SKILL.md Design
 
-In universal mode, SKILL.md is the complete operating contract.
+In universal mode, SKILL.md is the complete operating contract. Tool-class
+outputs use a subset of these sections; skill-class outputs use all sections.
 
 Required frontmatter:
 
@@ -304,6 +430,18 @@ metadata:
 
 Required body sections:
 
+For tool-class outputs:
+
+1. `# <skill-name>`
+2. `## What this skill does`
+3. `## When to use it`
+4. `## Input`
+5. `## Output`
+6. `## How to run it`
+7. `## Known limits`
+
+For skill-class outputs:
+
 1. `# <skill-name>`
 2. `## What this skill does`
 3. `## When to use it`
@@ -313,6 +451,77 @@ Required body sections:
 7. `## Config` if configurable
 8. `## Known limits`
 9. `## Anti-goals`
+10. `## Agent behavior`
+11. `## Diagnostics`
+12. `## Feature discovery` if the skill has multiple dimensions
+
+### Agent behavior section (skill-class only)
+
+Constrains the agent's output presentation so the user gets a consistent
+experience regardless of platform. Required content:
+
+- **Presentation order:** which metric to lead with, which to group together,
+  when to use a table vs. a paragraph vs. a list.
+- **Config transparency:** which config parameters exist, what their defaults
+  are, and under what circumstances the agent should offer to adjust them
+  ("If the outlier count seems high, suggest increasing the threshold").
+- **Follow-up prompts:** what the agent should say after presenting results to
+  invite deeper exploration ("I can break this down by product, region, or
+  sales rep — want to dive into any of those?").
+
+Example:
+
+```text
+Start with the grand total and data quality summary. Then offer to show the
+top region, product, or sales rep. Use a table for per-category breakdowns
+with more than three items; use inline text for three or fewer.
+If outliers are detected, mention the count and suggest the user adjust the
+sensitivity threshold.
+```
+
+### Diagnostics section (skill-class only)
+
+Documents what structured diagnostic output the pipeline produces on failure
+and how the agent should surface it. Required content:
+
+- **Diagnostic schema:** what fields the diagnostic JSON contains
+- **Agent guidance:** what to tell the user when a specific diagnostic fires
+- **Resolution hints:** what the user can do to fix the issue
+
+Example:
+
+```text
+When a column cannot be detected, the pipeline exits with a structured error:
+{
+  "unrecognized_columns": ["区域", "金额"],
+  "closest_known_roles": {
+    "区域": ["region", "area", "territory"],
+    "金额": ["amount", "revenue", "value"]
+  },
+  "action": "Add '区域' to assets/column_aliases.json"
+}
+Surfacing guidance: tell the user the column wasn't recognized, show the
+closest match, and explain what the fix looks like.
+```
+
+### Feature discovery section (skill-class, multi-dimension only)
+
+Lightweight hints the agent adds to its response after completing the user's
+request. This lets users discover capabilities they didn't know to ask for.
+
+Content: for each dimension or analysis mode the skill supports, one sentence
+summarizing what it reveals and when it is useful. The agent should add one
+of these hints at the end of its response, varying which one across
+interactions so the user gradually builds a mental model of the skill.
+
+Example:
+
+```text
+Related capabilities:
+- Breakdown by region — see which area contributed the most revenue
+- Breakdown by product — identify top and bottom performers
+- Data quality report — detect duplicates, outliers, and missing values
+```
 
 Rules:
 
@@ -320,8 +529,10 @@ Rules:
 - Do not include a `Trigger` section.
 - Do not use slash-command invocation examples.
 - Do not mention agent platforms.
-- Include one concrete output example.
+- Include one concrete output example with realistic data.
 - Prefer JSON examples over prose-only output descriptions.
+- For skill-class outputs, include Agent behavior, Diagnostics, and Feature
+  discovery sections.
 
 The output example is mandatory because it lets an agent infer the output shape
 before running the skill.
@@ -449,6 +660,13 @@ python3 scripts/run_evals.py --rollout
 ## Validation
 
 Universal mode still uses the factory's normal validation and security checks.
+Additional validation for skill-class outputs:
+
+- SKILL.md has `## Agent behavior` section
+- SKILL.md has `## Diagnostics` section
+- SKILL.md's `## Output` includes a concrete JSON example
+- Column aliases, thresholds, and domain knowledge are stored in `assets/` as
+  data files, not hardcoded in Python
 
 Validation should confirm:
 
@@ -508,9 +726,26 @@ The design is complete when:
    adding platform-specific files to the generated skill.
 8. Skill modification, migration, upgrade, and distribution are owned by
    agent-skill-creator and `skillctl`, not by generated skill packages.
-9. Existing default generation behavior is unchanged.
+9. The factory classifies each generated output as tool or skill during Phase 2
+   and uses the correct template set.
+10. Generated skill-class outputs include an Agent behavior section that
+   constrains presentation order, config transparency, and follow-up prompts.
+11. Generated skill-class outputs include a Diagnostics section with
+   structured failure schema and agent guidance.
+12. Generated skill-class outputs include a Feature discovery section for
+   skills with multiple dimensions.
+13. Domain knowledge is always stored as data files, never hardcoded in
+   processing scripts.
+14. Existing default generation behavior is unchanged.
 
 ## Risks
+
+The Tool vs Skill classification is a binary decision the factory LLM must
+make during Phase 2. If misclassified, the generated output will either
+under-spec (skill cast as tool, missing domain guidance) or over-spec (tool
+cast as skill, generating unnecessary conversation rules). The factory should
+prefer under-spec when uncertain: too little guidance is easier for an agent
+to compensate for than incorrect guidance.
 
 Universal mode trades away per-skill turnkey platform installers. This is
 intentional, but the README must make both direct use and registry-based
@@ -521,10 +756,12 @@ grading power for some writing-heavy skills. For those cases, command checks can
 still call external graders explicitly, but the universal harness should not
 ship with a platform-specific judge backend.
 
-Some platforms may prefer `AGENTS.md` as the primary instruction file. Keeping
-AGENTS.md as a compact dispatch card means those platforms must follow the link
-to SKILL.md for the full contract. This is acceptable because it prevents two
-large, divergent specs from drifting apart.
+Agent behavior, Diagnostics, and Feature discovery sections in SKILL.md require
+the factory to generate structured guidance for the agent's presentation layer.
+This is not a simple prose exercise: parameters, failure modes, and related
+capabilities must be extracted during Phase 1-2 design and encoded during
+Phase 5. The factory must treat these as first-class outputs, not optional
+niceties.
 
 ## Open Questions For Implementation
 
