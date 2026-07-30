@@ -263,3 +263,14 @@ Now supported (previously out of scope):
 - **Evidence-bearing failures** — any failed run appends the raw failing check
   rows to the skill's `EVOLUTION.md` (as does `staleness_check --record`), so
   the fix/regenerate step consumes evidence, not an exit code.
+
+### Universal Mode
+
+When `--universal` is active:
+
+- All criteria use `type: command`. No `llm-judge` criteria.
+- No `judge` block in the eval spec.
+- Minimum 3 golden cases, at least one `split: "test"`.
+- For skill-class outputs, at least one golden case tests domain judgment.
+- The `run_evals.py` template follows `references/universal-standard.md` Section 5
+  (command-only, <500 lines), not `scripts/run_evals_template.py`.
