@@ -78,7 +78,32 @@ skill-name/
 
 **Key rule:** SKILL.md is the activation mechanism on every platform. Additionally, every skill ships a `.claude-plugin/` directory (`plugin.json` + `marketplace.json`) so Claude Code can install it natively via `/plugin marketplace add <repo-or-path>` + `/plugin install` — the SKILL.md at the skill root is discovered automatically (root-fallback; no `skills/` subdirectory needed). Other platforms ignore the directory.
 
-### 2.2 SKILL.md Frontmatter (Required)
+### 2.2 Universal (Platform-Agnostic) Directory Layout
+
+When `--universal` is active, use this structure instead of Section 2.1:
+
+```
+skill-name/
+├── SKILL.md
+├── AGENTS.md
+├── README.md
+├── scripts/
+│   ├── pipeline.py
+│   ├── <domain modules>.py
+│   └── utils.py
+├── evals/
+│   ├── spec.md
+│   └── golden/
+├── assets/
+│   └── <optional configs/templates>
+└── requirements.txt
+```
+
+Same Simple/Suite decision logic applies. Only the output file list changes — platform-specific directories, install scripts, and lifecycle maintenance scripts are omitted.
+
+For universal complex suites, each component keeps only capability docs, executable logic, tests/evals, assets, and dependency declarations.
+
+### 2.3 SKILL.md Frontmatter (Required)
 
 ```yaml
 ---
@@ -94,7 +119,7 @@ compatibility: >-           # optional, use when platform-specific features exis
 ---
 ```
 
-### 2.3 File Responsibilities
+### 2.4 File Responsibilities
 
 | File/Directory | Purpose | Required? |
 |---------------|---------|-----------|
@@ -108,7 +133,7 @@ compatibility: >-           # optional, use when platform-specific features exis
 | `install.sh` | Cross-platform installer script | Yes |
 | `README.md` | Installation instructions for 5+ platforms | Yes |
 
-### 2.4 marketplace.json and SKILL.md: complementary, not competing
+### 2.5 marketplace.json and SKILL.md: complementary, not competing
 
 - SKILL.md remains the universal discovery/activation mechanism across all 17 platforms — the `description` field alone activates the skill everywhere
 - `.claude-plugin/{plugin.json,marketplace.json}` is additive: it gives Claude Code users the native `/plugin marketplace add` + `/plugin install` path (in-tool install, updates, enable/disable). Other platforms simply ignore the directory
