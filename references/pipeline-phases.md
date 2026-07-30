@@ -392,6 +392,11 @@ WebSearch: "weather API historical data global"
   the skill's loss function. Written to `evals/<name>.eval.md` in Phase 5; on by
   default, `--no-eval` opts out. See `phase2-eval-assessment.md`.
 
+**Universal mode:** do not create `llm-judge` criteria. All criteria must be
+`type: command`. No `judge` block in the eval spec. For skill-class outputs,
+at least one golden case must exercise domain judgment, not just structural
+correctness.
+
 ## Detailed Process
 
 ### Step 1: Brainstorm Use Cases
@@ -641,6 +646,10 @@ skill-name/
 
 **Important:** The SKILL.md file with its frontmatter is what activates the skill on all platforms. The `.claude-plugin/` manifests (Step 6.5) are additive: they make the same skill installable through Claude Code's native plugin system (`/plugin marketplace add`), which brings in-tool install, updates, and enable/disable. Because the skill has no `skills/` subdirectory, Claude Code discovers the root SKILL.md automatically (root-fallback). Do NOT add a `.claude/` directory inside a skill — it can shadow plugin skill discovery.
 
+**Universal mode:** see `references/universal-standard.md` Section 1 for the
+universal directory layout. All platform-specific directories and files are
+omitted.
+
 ### Step 3: Simple vs Complex Suite Decision
 
 | Factor | Simple Skill | Complex Suite |
@@ -748,6 +757,11 @@ Prepare content for `DECISIONS.md`:
 Generate a **description** (<=1024 characters) with domain keywords for agent discovery. The description in the SKILL.md frontmatter IS the primary activation mechanism across all platforms.
 
 **Key v4.0 change:** There are NO `activation.keywords` or `activation.patterns` fields in marketplace.json. The `description` field in SKILL.md frontmatter is the single activation mechanism. All keywords must be embedded in the description itself.
+
+**Universal mode:** activation description is the primary signal — no trigger
+section, no slash commands. Coverage must include fuzzy/real-world expressions
+in the user's primary language. For skill-class outputs, include an activation
+alert sentence.
 
 ## Detailed Process
 
@@ -1598,6 +1612,15 @@ See README.md for complete multi-platform installation instructions.
 | 8 | Run `validate.py` + `check_pipeline.py` | Must pass before delivery |
 | 9 | Run `security_scan.py` | Must pass before delivery |
 | 10 | Report results | Summary to user |
+
+**Universal mode:** see `references/universal-standard.md` for the complete
+file list. The generated file set drops install.sh, bootstrap wrappers,
+.claude-plugin/, evolve.py, staleness/drift/dep-health scripts, and
+platform-specific activation examples. Domain knowledge goes in `assets/` data
+files, not hardcoded in Python. Pipelines must produce structured diagnostic
+output on failure. Skill-class outputs include Agent behavior, Diagnostics, and
+Feature discovery sections in SKILL.md. Use the simplified eval harness from
+Section 5 of `references/universal-standard.md`.
 
 ## Phase 5 Checklist
 
