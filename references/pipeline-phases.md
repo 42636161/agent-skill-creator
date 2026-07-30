@@ -682,6 +682,9 @@ omitted.
 | `rate_limiter.py` | Rate limit control, persistent counter | 100-150 lines |
 | `validators.py` | Data validations, consistency checks | 100-150 lines |
 
+**Dependency graph:** Alongside step responsibilities, define the DAG — which steps depend on which. Every step function maps to a DAG node; the dependency ordering determines the `STEPS` dict in `scripts/pipeline_template.py`. For example: `{"clean": [], "report": ["clean"]}` means `report` depends on `clean`.
+
+
 ### Step 5: Plan References
 
 Detailed documentation files loaded on demand:
@@ -1104,12 +1107,22 @@ Full skill definition, scripts, and references are in the SKILL.md file and acco
 - `assets/` — Templates, configs
 - `evals/` — Bundled eval spec: binary checks + golden cases
 - `install.sh` — Cross-platform installer
+
+## Agent Constraints
+
+1. Must NOT <first constraint derived from Phase 2 business rules>
+2. Must <second constraint derived from Phase 2 use cases>
+3. Must NOT <third constraint derived from Phase 2 or Phase 4>
+4. Must <fourth constraint — at least one positive "Must" clause>
+
+Derived from Phase 2 discussions, not generic best practices. Each constraint must be verifiable (the agent either followed it or didn't).
 ```
 
 **Rules:**
 - Keep AGENTS.md concise (~50-100 lines). It is a pointer and summary, not a duplicate of SKILL.md.
 - Include enough context for tools that ONLY read AGENTS.md (they will not see SKILL.md).
 - Include activation keywords so description-based matching works.
+- Append a `## Agent Constraints` section with at least 3 verifiable "Must" or "Must NOT" clauses. Derive constraints from Phase 2 discussions, not from generic best practices. Each constraint must be verifiable (the agent either followed it or didn't).
 
 ### Step 3: Implement Python Scripts
 
@@ -1532,6 +1545,12 @@ python3 path/to/skill/scripts/run_evals.py --validate
 
 It must report `VALID` (exit 0). Fix the spec and re-run if not.
 
+**Universal layout check (lint):** If the skill is being built in universal mode,
+additionally run `python3 scripts/validate.py --check-universal path/to/skill/`.
+Output is lint (non-blocking — continue-on-error). Require 0 errors before
+publish. The universal check runs *after* the main spec validation and does not
+block other pipeline steps.
+
 **What it checks:**
 - Frontmatter fields present and valid (name, description, license, metadata)
 - Name matches directory name
@@ -1602,6 +1621,7 @@ See README.md for complete multi-platform installation instructions.
 | 1 | Directory structure | `mkdir -p skill-name/{scripts,references,assets}` |
 | 2 | `SKILL.md` | PRIMARY file, <500 lines, spec-compliant frontmatter |
 | 3 | `scripts/*.py` | Functional code; `run_pipeline.py` orchestrator for multi-script skills |
+| 3.5 | `contract.json` | Machine-readable contract: input assumptions, output fields, DAG, semantics |
 | 4 | `references/*.md` | Detailed documentation, self-contained |
 | 5 | `assets/*.json` | Real values, validated JSON |
 | 5.5 | `evals/*.eval.md` + `scripts/run_evals.py` | Bundled loss function; skip if `--no-eval` |
@@ -1635,12 +1655,15 @@ Section 5 of `references/universal-standard.md`.
 - [ ] SKILL.md body has `## Prerequisites` section
 - [ ] SKILL.md anti-goals include anti-activation instruction
 - [ ] All Python scripts implemented with functional code
+- [ ] contract.json emitted with input/output/dag/semantics sections
 - [ ] No TODO, no `pass`, no `NotImplementedError`, no placeholders
 - [ ] All scripts have: shebang, docstrings, type hints, error handling
 - [ ] Multi-script skill has one `scripts/run_pipeline.py` orchestrator (steps wired in code, one happy-path command)
 - [ ] `check_pipeline.py` reports no errors (scripts compile, third-party deps declared)
 - [ ] Input validation implemented (reject bad inputs with structured JSON errors)
 - [ ] Output sanity checks implemented (warn on extreme values)
+- [ ] Defensive I/O patterns applied (encoding, columns, dirs, NULLs)
+
 - [ ] `--check-prereqs` command returns structured JSON
 - [ ] `--diagnostics` command returns skill metadata
 - [ ] Self-bootstrapping wrappers: `./skill-name` (bash) + `.\skill-name.ps1` (PowerShell)
@@ -1657,6 +1680,7 @@ Section 5 of `references/universal-standard.md`.
 - [ ] `README.md` written with multi-platform install instructions (including `/plugin marketplace add`)
 - [ ] `requirements.txt` created (if third-party dependencies used)
 - [ ] Spec validation passed (`scripts/validate.py`)
+- [ ] Contract validation passed (`scripts/validate.py --check-contract`)
 - [ ] Security scan passed (`scripts/security_scan.py`)
 - [ ] Staleness check passed (`scripts/staleness_check.py`)
 - [ ] Results reported to user

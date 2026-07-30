@@ -1,3 +1,59 @@
+## v0.3.0 — 质量框架实现（2026-07-30）
+
+### 新增
+
+- **contract.json** — 生成技能自描述契约，含输入假设、输出字段、步骤 DAG、字段语义。validate.py 新增 `--check-contract` 验证代码与契约一致性。各字段按类型生成边界测试用例。
+- **DAG 依赖自动解析** — pipeline_template.py 新增 `STEPS` 依赖图 + `resolve_steps()` 拓扑排序。入口接受最终目标（`--report`），engine 自动补全前置步骤，`--clean` 保持向后兼容。
+- **Agent Constraints 检查** — AGENTS.md 新增 `## Agent Constraints` 节（至少 3 条可验证约束），validate.py 默认阻断式检查，`--skip-agent-constraints` 可跳过。
+- **AST 级静态验证** — `validate.py --check-ast` 检测死函数、死变量、魔法数字。`--rollout` 模式下死函数升级为错误。仅使用 Python 标准库 ast 模块。
+- **防御性 I/O 模板** — pipeline_template.py 新增四项实用函数：`_detect_encoding`（6 种编码自动探测）、`_match_columns`（列名模糊匹配）、`_ensure_dir`（目录自动创建）、`_safe`（NULL 安全处理）。SKILL.md 与 pipeline-phases.md 增加对应指导。
+- **完整静态分析** — `validate.py --static-analysis`：导入链解析（局部/第三方/循环检测）、未定义引用检测、类型冲突检测。11 个测试覆盖全部路径。
+- **Golden case 边界模板** — phase2-eval-assessment.md 定义按数据类型（string/integer/float/date/boolean）的 NULL/空/最大值/特殊字符边界模板，生成时标记为 holdout（`"split": "test"`）。
+
+### 质量提升
+
+| 维度 | 改进 | P0/P1/P2 |
+|---|---|---|
+| AI 可解读性 | contract.json + Agent Constraints | P0 |
+| 执行可靠性 | DAG 自动解析 + 防御性 I/O | P0 |
+| 验证完备性 | AST 验证 + 静态分析 + universal CI lint | P1 |
+| 测试有效性 | 边界模板扩增 | P2 |
+
+| 验证标志 | 功能 | 阻断级别 |
+|---|---|---|
+| `--check-contract` | 契约-代码一致性 | warning (default), error (universal) |
+| `--check-ast` | 死代码/魔法数字 | warning, error (--rollout) |
+| `--static-analysis` | 导入链/引用/类型 | error |
+| Agent Constraints | AGENTS.md 约束存在性 | error (blocking) |
+| `--check-universal` (CI) | universal 布局合规 | lint (continue-on-error) |
+
+### 改动文件
+
+```
+references/contract-schema.json            — 新增：contract.json JSON Schema
+scripts/pipeline_template.py               — 新增：DAG 解析 + 防御性 I/O 模板
+scripts/tests/test_validate.py             — 新增：27 个测试（契约/AST/约束/静态分析）
+EVALUATION.md                              — 重写：质量框架 v2.0
+README.md                                  — 修改：--universal 入口提示
+SKILL.md                                   — 修改：Phase 2/5 新增 contract/约束/防御/DAG/边界指令
+references/pipeline-phases.md              — 修改：Phase 3/5 新增 DAG/contract/约束/防御/universal CI 条目
+references/phase2-eval-assessment.md       — 修改：新增边界模板节
+scripts/validate.py                        — 修改：新增 5 个验证模块（contract/AST/约束/静态分析）
+.github/workflows/ci.yml                   — 修改：新增 universal 布局 lint 步骤
+docs/superpowers/plans/2026-07-30-quality-framework-implementation.md    — 新增：质量框架执行计划
+docs/superpowers/plans/2026-07-30-universal-skill-output-implementation.md — 新追踪：universal 模式执行计划
+```
+
+### 历史版本
+
+- v0.1.0 存档在 `archive/v0.1-skill-distribution` 分支
+
+
+
+
+---
+
+
 ## v0.2.0 — 平台中立技能输出模式（2026-07-30）
 
 ### 新增

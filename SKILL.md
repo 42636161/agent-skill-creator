@@ -248,6 +248,12 @@ with the skill as an instant regression test, formatted so
 `references/phase2-eval-assessment.md` for criteria rules, the golden-case
 strategy, the JSON spec format, and the optimize handoff.
 
+When synthesizing golden case data, include one boundary edge per field using
+the template in `references/phase2-eval-assessment.md` §Boundary Template.
+Mark the normal case as `"split": "train"` and boundary cases as
+`"split": "test"`.
+
+
 ### Phase 3: Architecture
 
 Structure the skill using the Agent Skills Open Standard:
@@ -270,9 +276,20 @@ See `references/pipeline-phases.md` for detailed Phase 4 instructions.
 Create all files in this order:
 
 1. Create directory structure
-2. Write **SKILL.md** — starts with `# /skill-name`, includes trigger section with invocation examples, spec-compliant frontmatter
-3. Write **AGENTS.md** — companion instruction file for maximum cross-tool reach (~15 tools read AGENTS.md). Contains skill purpose, activation triggers, usage instructions, and a reference to SKILL.md for full details. Follows the AAIF-governed AGENTS.md format
-4. Implement Python scripts (functional, no placeholders, no TODOs). **For a multi-script pipeline**, also emit a single `scripts/run_pipeline.py` orchestrator that runs the steps in order and wires output→input **in code** — so the agent runs one command instead of sequencing steps from prose. Skip for genuinely interactive/branching skills. **If any pipeline step invokes an LLM**, follow the LLM-step contract in `references/phase5-orchestration.md`: model id resolved from `--model` argv / `$EVAL_MODEL` env with a pinned default, and runtime-reported usage written to the `{output}.usage.json` sidecar — so `run_evals.py --rollout --model A --model B` can price the task per model. See `references/phase5-orchestration.md`
+2. Write **SKILL.md** — starts with `# /skill-name`, includes a `## How to run it` section showing the simplified `--report` invocation, spec-compliant frontmatter
+3. Write **AGENTS.md** — companion instruction file for maximum cross-tool reach (~15 tools read AGENTS.md). Contains skill purpose, activation triggers, usage instructions, and a reference to SKILL.md for full details. Follows the AAIF-governed AGENTS.md format. **Append a `## Agent Constraints` section** derived from Phase 2 discussions (see `references/pipeline-phases.md` Step 2.5 for the template and derivation rules).
+4. Implement Python scripts (functional, no placeholders, no TODOs). Use `scripts/pipeline_template.py` as the template for `scripts/pipeline.py`. The generated pipeline must include a dependency graph (`STEPS` dict), a `resolve_steps()` function for topological ordering, and a `--report` flag as the primary entry point (auto-resolves all prerequisite steps). Keep `--clean` for backward compat but mark it deprecated in help text. **For a multi-script pipeline**, the generated `scripts/pipeline.py` also wires each step's output into the next step's input **in code** — so the agent runs one command instead of sequencing steps from prose. Skip for genuinely interactive/branching skills. In the generated SKILL.md, add a `## How to run it` section:
+
+```markdown
+## How to run it
+Generate a complete report (includes clean + report):
+    python3 scripts/pipeline.py --report
+```
+**If any pipeline step invokes an LLM**, follow the LLM-step contract in `references/phase5-orchestration.md`: model id resolved from `--model` argv / `$EVAL_MODEL` env with a pinned default, and runtime-reported usage written to the `{output}.usage.json` sidecar — so `run_evals.py --rollout --model A --model B` can price the task per model. See `references/phase5-orchestration.md`
+
+**Defensive I/O**: Use the defensive I/O utilities from `scripts/pipeline_template.py` — `_detect_encoding`, `_match_columns`, `_ensure_dir`, `_safe` — in all I/O code.
+
+4.5. Write **contract.json** from decisions already made in Phase 2 (input/output fields, column types, semantics) and Phase 3 (DAG/architecture). Populate `semantics` from Phase 2 discussions about business rules. Write to `<skill>/contract.json`. See `references/contract-schema.json` for the schema.
 5. Write references (detailed documentation the skill loads on demand)
 6. Write assets (templates, configs)
 7. **Emit the eval spec** (skip if `--no-eval`): write `evals/<name>.eval.md` (the binary checks + golden cases derived in Phase 2, one marked `"split": "test"` as the holdout, plus a `judge` block with a pinned model and known-bad canary when any criterion is `llm-judge`) and copy `scripts/run_evals_template.py` → the generated skill's `scripts/run_evals.py`. See `references/phase2-eval-assessment.md`
@@ -280,6 +297,7 @@ Create all files in this order:
 8.5. Generate `.claude-plugin/plugin.json` + `marketplace.json` from `scripts/claude-plugin-template/` (placeholders from frontmatter — makes the skill installable via `/plugin marketplace add`), and **ship the evolution toolkit**: copy `scripts/evolve_template.py` → `scripts/evolve.py` plus the staleness/drift/dep-health modules. See `references/pipeline-phases.md` Steps 6.5–6.6
 9. Write `README.md` (multi-platform install instructions showing the `/plugin marketplace add` path for Claude Code and `git clone` to each tool's **native** path)
 10. Run **validation** against the official spec, **security scan** for hardcoded keys, instruction-body injection, and undeclared endpoints, **`python3 <skill>/scripts/check_pipeline.py <skill>`** (no compile or undeclared-dependency errors), and — if an eval spec was emitted — `python3 <skill>/scripts/run_evals.py --validate` (must report `VALID`)
+10.5. **Universal layout check (lint)**: If `--universal` mode, additionally run `python3 scripts/validate.py --check-universal <skill>`. Output is lint (non-blocking — continue on error). Require 0 errors before publish.
 11. **Auto-install on the current platform** (see below)
 12. Report results to user with clear next steps, including the eval/optimize one-liner from `references/phase2-eval-assessment.md`
 
@@ -678,9 +696,14 @@ See `references/architecture-guide.md` for detailed decision framework.
 
 Generated skills work across 17 tools in 3 tiers. Every generated skill outputs both **SKILL.md** (skill definition, ~15 tools) and **AGENTS.md** (instruction file, ~15 tools) to maximize reach.
 
+## How to run it
+Generate a complete report (includes clean + report):
+    python3 scripts/pipeline.py --report
+
+
 In universal mode, the generated skill is platform-agnostic — it has no
 platform-specific code or artifacts. Every platform accesses it the same way:
-`python3 scripts/pipeline.py`. Platform-specific installation is handled by
+`python3 scripts/pipeline.py --report`. Platform-specific installation is handled by
 `skillctl` outside the generated package.
 
 ### Tier 1 — Native SKILL.md (reads directly, no conversion)

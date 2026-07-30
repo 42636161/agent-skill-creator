@@ -177,6 +177,11 @@ Your team installs it the same way — one `git clone` to their tool's path — 
 
 ---
 
+> **Advanced:** 只想要纯 skill 能力包、不含任何平台适配器？只需在描述前加上 `--universal`。
+> 生成的技能不含 install.sh 与平台格式适配器，适合集成到自定义分发流程。
+> 详见 [`references/universal-standard.md`](references/universal-standard.md)。
+
+
 ## What's new
 
 Full detail on every entry lives in the [CHANGELOG](CHANGELOG.md).

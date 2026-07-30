@@ -1,0 +1,113 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://raw.githubusercontent.com/sye/agent-skill-creator/main/references/contract-schema.json",
+  "title": "Skill Contract Schema",
+  "description": "Declares a skill's input assumptions, output files, DAG, and field semantics in machine-readable form. All sections are optional in default mode; semantics is optional in universal mode.",
+  "type": "object",
+  "properties": {
+    "input": {
+      "description": "Assumptions about the skill's input data: encoding, column schema, and file path patterns.",
+      "type": "object",
+      "properties": {
+        "encoding": {
+          "description": "Expected character encoding for input files (e.g. utf-8, latin-1).",
+          "type": "string"
+        },
+        "columns": {
+          "description": "Map of column name to expected data type. Types use plain strings: string, integer, float, boolean, date, datetime.",
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "file_patterns": {
+          "description": "Glob patterns for input files the skill expects (e.g. ['*.csv', 'data/*.xlsx']).",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "output": {
+      "description": "Files produced by the skill and their field schemas. Keys are output artifact names.",
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "description": "Relative path from the skill root to the output file.",
+            "type": "string"
+          },
+          "fields": {
+            "description": "Map of field name to expected data type.",
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "dag": {
+      "description": "Directed acyclic graph of pipeline steps: execution order and dependencies.",
+      "type": "object",
+      "properties": {
+        "steps": {
+          "description": "Ordered list of pipeline steps. Implicit execution order is array index; depends_on declares explicit data dependencies.",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "description": "Unique step identifier matching a function or script name.",
+                "type": "string"
+              },
+              "depends_on": {
+                "description": "Names of steps that must complete before this one.",
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "description": {
+                "description": "What this step does, in natural language.",
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "semantics": {
+      "description": "Business rules, allowed values, and field-level meaning. Mirrors the column-level decisions made in Phase 2.",
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "meaning": {
+            "description": "What this field represents in business terms.",
+            "type": "string"
+          },
+          "allowed": {
+            "description": "Exhaustive list of permitted values (for categorical/enum fields). Nullable values should include null explicitly.",
+            "type": "array"
+          },
+          "rules": {
+            "description": "Business rules or constraints expressed as natural-language strings.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

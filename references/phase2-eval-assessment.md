@@ -82,6 +82,27 @@ Two optional per-case fields control the regression gate (see Step 3.5):
 - `"compare_ignore": ["timestamp", ...]` — top-level JSON keys dropped from
   both sides before comparison, for volatile fields like timestamps.
 
+## Boundary Template for Golden Cases
+
+When synthesizing golden cases, use this template to guarantee one boundary
+edge per field. Each boundary variant tests a different failure mode:
+hard-null/missing data, zero/empty values, maximum allowed size, and
+domain-specific special values.
+
+| Type | NULL variant | Empty variant | Max variant | Special variant |
+|---|---|---|---|---|
+| string | `null` | `""` | length=256 | Unicode + control chars |
+| integer | `null` | `0` | `999999` | negative |
+| float | `null` | `0.0` | `1e10` | negative, NaN |
+| date | `null` | `""` | `9999-12-31` | `0001-01-01`, invalid format |
+| boolean | `null` | `false` | — | — |
+
+Each generated golden case set includes exactly one boundary case per field,
+combined with one normal-case row. Boundary cases are data-driven expansion,
+not random. Mark the regular case as `"split": "train"` and boundary cases as
+`"split": "test"` (holdout, scored only in CI).
+
+
 ## Step 3 — Emit the spec in Phase 5
 
 Write, inside the generated skill:

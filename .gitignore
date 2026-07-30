@@ -52,3 +52,6 @@ tests/
 
 # Generated format adapter files
 *.mdc
+
+# Generated output from skill examples
+weekly-crm-skill/

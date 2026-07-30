@@ -48,6 +48,17 @@ jobs:
             fi
           done
 
+      - name: Universal layout check (lint)
+        continue-on-error: true
+        run: |
+          for skill in references/examples/*/; do
+            if [ -f "$skill/SKILL.md" ]; then
+              echo "::group::$skill"
+              python3 scripts/validate.py --check-universal "$skill"
+              echo "::endgroup::"
+            fi
+          done
+
       - name: Validate and roll out bundled eval specs
         run: |
           for runner in references/examples/*/scripts/run_evals.py; do
