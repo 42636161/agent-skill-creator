@@ -1036,26 +1036,34 @@ metadata:
 - Detailed methodologies go to `references/analysis-methods.md`
 - Troubleshooting goes to `references/troubleshooting.md`
 
-### Step 2.5: Add Agent Constraints (in SKILL.md, no per-skill AGENTS.md)
+### Step 2.5: Write AGENTS.md (Dispatch Card with Agent Constraints)
 
-**Per-skill AGENTS.md is no longer generated.** Selection information (category,
-input, output, when to use, when not) lives in the SKILL.md body's `## Quick Profile`
-section. The factory root `AGENTS.md` (at the agent-skill-creator repo root) is
-unaffected.
-
-**Agent Constraints** (at least 3 verifiable "Must" or "Must NOT" clauses) are
-now added to the SKILL.md body instead of a separate AGENTS.md. Place them as a
-short section after the workflow:
+Generate an AGENTS.md alongside SKILL.md. Keep it ≤25 lines — a dispatch card,
+not a duplicate of SKILL.md.
 
 ```markdown
-## Agent Constraints
+# /skill-name
 
-1. Must NOT <constraint derived from Phase 2 business rules>
-2. Must <constraint derived from Phase 2 use cases>
-3. Must NOT <constraint derived from Phase 2 or Phase 4>
+[One-line description from SKILL.md frontmatter.]
+
+## How to run it
+
+```bash
+python3 scripts/pipeline.py --input <input> --output <output> --report
 ```
 
-Derive constraints from Phase 2 discussions, not from generic best practices. Each constraint must be verifiable (the agent either followed it or didn't).
+See [SKILL.md](./SKILL.md) for full instructions, input/output contracts,
+configuration, and limits.
+
+## Agent Constraints
+
+1. Must NOT <constraint from Phase 2 business rules>
+2. Must <constraint from Phase 2 use cases>
+3. Must NOT <constraint from Phase 2 or Phase 4>
+```
+
+Derive constraints from Phase 2 discussions. Each must be verifiable.
+Agent Constraints live only in AGENTS.md; SKILL.md does NOT duplicate them.
 
 ### Step 3: Implement Python Scripts
 
@@ -1365,11 +1373,7 @@ skillctl update <skill-name>                           # Upgrade
 
 Every skill must include these harness patterns as executable code, not as markdown instructions.
 
-**a. Runtime entry wrappers at the repo root:**
-- `./skill-name` (bash) — auto-creates venv, installs uv if missing, installs deps on first run. Startup messages to stderr.
-- `.\skill-name.ps1` (PowerShell) — same behavior for Windows users.
-
-**b. Input validation module (`scripts/validate_inputs.py` or integrated into main script):**
+**a. Input validation module (`scripts/validate_inputs.py` or integrated into main script):**
 - Validate all user-facing inputs before computation: reject negatives where nonsensical, reject out-of-bounds values, validate enum inputs against known values
 - On validation failure: print JSON to stderr with `{"error": "...", "error_type": "validation", "details": [{"field": "...", "error": "..."}]}` and exit 1
 - If the skill brief contains `harness_requirements.input_validation`, implement those specific rules
@@ -1545,7 +1549,6 @@ SKILL.md. Use the simplified eval harness from Section 5 of
 
 - [ ] `--check-prereqs` command returns structured JSON
 - [ ] `--diagnostics` command returns skill metadata
-- [ ] Runtime entry wrappers: `./skill-name` (bash) + `.\skill-name.ps1` (PowerShell)
 - [ ] All errors as JSON to stderr with error_type classification
 - [ ] References written with real, self-contained content
 - [ ] Assets created with valid JSON and real values
@@ -1553,9 +1556,11 @@ SKILL.md. Use the simplified eval harness from Section 5 of
 - [ ] Eval spec validates (`python3 scripts/run_evals.py --validate` → VALID)
 - [ ] At least one golden case marked `"split": "test"` (holdout — skipped by default, scored only with `--include-holdout`, never fed to an optimization loop)
 - [ ] No per-skill installer (installation uses `skillctl install <name>`)
-- [ ] No per-skill AGENTS.md generated (selection info is in Quick Profile)
+- [ ] AGENTS.md generated as ≤25-line dispatch card with Agent Constraints
 - [ ] Evolution toolkit shipped (`scripts/evolve.py` + staleness/drift/dep-health modules; `python3 scripts/evolve.py` exits 0)
 - [ ] Eval spec has a `judge` block with a pinned model + known-bad canary when any criterion is `llm-judge`
+- [ ] SKILL.md has `## Runtime Contract` section (no source-code reading in normal use)
+- [ ] EVOLUTION.md NOT present in initial delivery (only generated after post-delivery failure)
 - [ ] `README.md` written with multi-platform install instructions (via `skillctl`)
 - [ ] `requirements.txt` created (if third-party dependencies used)
 - [ ] Spec validation passed (`scripts/validate.py`)

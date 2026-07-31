@@ -1,3 +1,30 @@
+## v0.5.0 — creator 规范收敛（2026-07-31）
+
+### 变更
+
+- **AGENTS.md 政策统一** — 保留生成，收敛为 ≤25 行 dispatch card；Agent Constraints
+  只保留在 AGENTS.md，SKILL.md 不再双写；factory `SKILL.md`、`pipeline-phases.md`、
+  `validate.py` 三方对齐，消除规则矛盾。
+- **SKILL.md 新增 Runtime Contract** — Phase 5 模板强制 `## Runtime Contract`
+  段，声明正常使用只运行单条命令、`scripts/` 默认不读。
+- **删除自引导包装器** — Phase 5 不再生成 `./skill-name`（bash）和
+  `.\skill-name.ps1` 根目录包装器。
+- **validate.py 新增检查** — 初始包不得携带 EVOLUTION.md（error）；Runtime Contract
+  存在（warning）；AGENTS.md 超过 25 行（warning）。
+- **validate.py 修复** — contract 输出路径跳过 `<output>` 占位符，不再误报
+  「file does not exist」；DAG 检测也读 `pipeline.py`（原来只读 `run_pipeline.py`）。
+
+### 改动文件
+
+```
+references/pipeline-phases.md        — 修改：Step 2.5、模板、Step 7b 包装器移除、checklist
+scripts/validate.py                  — 修改：AGENTS 行数/EVOLUTION/Runtime Contract 检查、contract 修复
+scripts/tests/test_validate.py       — 修改：新增 DescriptionFormat 4 条测试（来自 v0.4.1 修复）
+VERSION.md                           — 新增：本次版本记录
+```
+
+---
+
 ## v0.4.0 — 统一 skillctl 安装清理（2026-07-31）
 
 ### 变更

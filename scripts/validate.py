@@ -281,11 +281,26 @@ def validate_skill(skill_path: str) -> dict:
         # --- Description format validation ---
         _validate_description_format(doc, errors)
 
-        # --- Check for per-skill AGENTS.md ---
+        # --- AGENTS.md check ---
         ag = skill_dir / "AGENTS.md"
         if ag.exists():
+            lines = ag.read_text(encoding="utf-8").count('\n') + 1
+            if lines > 25:
+                warnings.append(
+                    f"AGENTS.md is {lines} lines (recommended ≤25)"
+                )
+
+        # --- EVOLUTION.md initial-delivery check ---
+        evol = skill_dir / "EVOLUTION.md"
+        if evol.exists():
+            errors.append(
+                "EVOLUTION.md found in initial delivery — this file should only be generated after a post-delivery failure."
+            )
+
+        # --- Runtime Contract check ---
+        if "## Runtime Contract" not in body:
             warnings.append(
-                "per-skill AGENTS.md found — selection info should be in SKILL.md Quick Profile"
+                "SKILL.md missing ## Runtime Contract section — agents may read scripts/ unnecessarily when no single-command contract is stated."
             )
 
         # --- README.md presence check ---
@@ -579,6 +594,8 @@ def check_contract(skill_path: str, universal: bool = False) -> list[dict]:
         for artifact_name, artifact_info in output_section.items():
             path_val = artifact_info.get("path") if isinstance(artifact_info, dict) else None
             if path_val and isinstance(path_val, str):
+                if path_val.startswith('<') or '<output>' in path_val:
+                    continue
                 resolved = root / path_val
                 if not resolved.exists():
                     issues.append({
@@ -611,7 +628,9 @@ def check_contract(skill_path: str, universal: bool = False) -> list[dict]:
 
     # --- Check 3: DAG step count vs pipeline.py function count ---
     dag_section = contract.get("dag")
-    pipeline_script = root / "scripts" / "run_pipeline.py"
+    pipeline_script = root / "scripts" / "pipeline.py"
+    if not pipeline_script.exists():
+        pipeline_script = root / "scripts" / "run_pipeline.py"
     if isinstance(dag_section, dict):
         dag_steps = dag_section.get("steps")
         if isinstance(dag_steps, list) and dag_steps:
