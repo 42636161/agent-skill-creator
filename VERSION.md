@@ -1,20 +1,38 @@
-## v0.3.1 — git 作者署名更新（2026-07-31）
+## v0.4.0 — 统一 skillctl 安装清理（2026-07-31）
 
-### 修改
+### 变更
 
-- 本仓库 git 提交作者姓名由自动推断的 `孙一晖` 改为 `srt`（`git config user.name`）。
-- 最近一次提交（chore: remove local installers and plugin manifests）已用新署名重新提交（`git commit --amend --reset-author`），提交内容不变。
+- **删除本地安装器** — `install.sh` / `install.ps1`、`scripts/bootstrap.sh/.ps1/.bat`、`scripts/install-skill.sh/.ps1`、`scripts/install-template.sh/.ps1` 及 `scripts/claude-plugin-template/` 全部移除。
+- **删除插件清单入口** — `.claude-plugin/`、`.cursor-plugin/`、`.codex-plugin/`、`.agents/plugins/marketplace.json` 与示例技能附带清单移除，工具不再通过 plugin marketplace 安装本仓库。
+- **统一安装方式** — 工厂与生成技能统一通过 `skillctl install <name>` 安装；`skillhub` 仓库的 `install.sh` / `install.ps1` 只负责安装 skillctl CLI。
+- **文档与页面同步** — SKILL.md、README.md、docs/INSTALL.md（重写为 skillctl 统一安装文档）、CONTRIBUTING.md、references 全部清除 installer / plugin marketplace / npx 残余引用；docs/index.html 安装入口改为 skillctl；CI 删除 PowerShell 安装器解析 job；架构图标签改为 skillctl。
+- **测试同步** — 删除随安装器失效的 `test_plugin_manifests.py`、`test_install_parity.py`；`test_platforms.py` 移除 install-template.sh 漂移检测。
 
-### 修改说明
+### 验证
 
-| 项目 | 修改前 | 修改后 |
-|---|---|---|
-| 提交作者 | `孙一晖 <syh@sunyihuideAir2.local>` | `srt <syh@sunyihuideAir2.local>` |
+- 全局 grep `install.sh|bootstrap|claude-plugin|plugin marketplace|npx skills`：活跃文档仅剩 skillhub 统一引导器命令；其余命中为历史记录（CHANGELOG、docs/superpowers）与 `validate.py` 的 universal 布局 denylist。
+- 清理相关脚本通过 `py_compile`；除工作区未提交的 validate.py 新校验导致的既有失败外，测试套件其余 266 项通过。
 
 ### 改动文件
 
 ```
-VERSION.md — 新增：本次署名修改说明
+install.sh / install.ps1                            — 删除：自安装器
+scripts/bootstrap.sh / .ps1 / .bat                  — 删除：一键安装
+scripts/install-skill.sh / .ps1                     — 删除：技能安装器
+scripts/install-template.sh / .ps1                  — 删除：安装器模板
+scripts/claude-plugin-template/                     — 删除：插件清单模板
+.claude-plugin/ .cursor-plugin/ .codex-plugin/      — 删除：各工具插件清单
+.agents/plugins/marketplace.json                    — 删除：Codex 插件商店清单
+scripts/tests/test_plugin_manifests.py              — 删除：失效测试
+scripts/tests/test_install_parity.py                — 删除：失效测试
+SKILL.md README.md CONTRIBUTING.md                  — 修改：统一 skillctl 安装说明
+docs/INSTALL.md                                     — 重写：skillctl 统一安装文档
+docs/index.html                                     — 修改：安装入口改为 skillctl
+references/*                                        — 修改：清除 installer/plugin 残余引用
+scripts/export_utils.py                             — 修改：移除 .claude-plugin 排除与 npx 说明
+scripts/platforms.py scripts/tests/test_platforms.py — 修改：移除 shell 安装器漂移逻辑
+.github/workflows/ci.yml                            — 修改：删除 PowerShell 解析 job
+assets/architecture.excalidraw                      — 修改：install.sh 标签改为 skillctl
 ```
 
 ---

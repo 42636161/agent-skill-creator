@@ -190,6 +190,11 @@ Your team installs it the same way — `skillctl install sales-report-skill`, or
 
 Full detail on every entry lives in the [CHANGELOG](CHANGELOG.md).
 
+- **Unified skillctl install** — the factory and every generated skill now
+  install through the single `skillctl install <name>` CLI; local installers
+  (`install.sh` / `install.ps1`, bootstrap, install-skill/install-template)
+  and per-tool plugin marketplace manifests were removed. See
+  [VERSION.md](VERSION.md).
 - **MCP capability audit** — `--mcp-audit <server | repo | docs>` maps a data vendor's MCP server into a ranked list of buildable skills and an explicit not-buildable list (each rejection names the missing primitive), machine-gated by `scripts/mcp_audit_validate.py`. ([guide](references/mcp-audit.md))
 - **Keyless `llm-judge` grading** — `--judge` grades through the runtime you already have (Claude Code's subscription CLI, or `$EVAL_JUDGE_CMD` for any runtime); an API key is only the last-resort fallback for bare CI. A known-bad canary must fail every criterion or the judge run is invalid.
 - **Every skill ships its own metric** — a bundled eval spec + `run_evals.py`: golden-input rollout, promoted-baseline regression gate, per-model pass-rate + cost comparison (`--rollout --model A --model B`), one held-out golden case no optimization loop ever sees, failures recorded to the skill's `EVOLUTION.md`. Skip with `--no-eval`.
