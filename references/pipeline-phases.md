@@ -25,8 +25,7 @@ Phase 5: IMPLEMENTATION  -> Create all files, validate, security scan
 - Description: 1-1024 chars; this IS the activation mechanism
 - Generated SKILL.md must be **<500 lines** (move detail to `references/`)
 - Frontmatter must include: `name`, `description`, `license`, `metadata` (author, version)
-- `install.sh` is generated for cross-platform support
-- `.claude-plugin/` manifests are emitted for every skill (Step 6.5) — additive to SKILL.md activation, never a replacement
+- No per-skill installer — installation uses `skillctl install <name>`
 - Validation and security scan run at the end of Phase 5
 
 ---
@@ -589,9 +588,7 @@ skill-name/
 │   └── guide.md
 ├── assets/
 │   └── config.json
-├── .claude-plugin/       # plugin.json + marketplace.json (Claude Code plugin install)
-├── install.sh            # Cross-platform installer
-└── README.md             # Multi-platform install instructions
+└── README.md             # Multi-platform install instructions (via skillctl)
 ```
 
 **Organized Skill (3-5 scripts, medium complexity):**
@@ -611,8 +608,6 @@ skill-name/
 │   └── analysis-methods.md
 ├── assets/
 │   └── config.json
-├── .claude-plugin/
-├── install.sh
 └── README.md
 ```
 
@@ -639,12 +634,10 @@ skill-name/
 ├── assets/
 │   ├── config.json
 │   └── metadata.json
-├── .claude-plugin/
-├── install.sh
 └── README.md
 ```
 
-**Important:** The SKILL.md file with its frontmatter is what activates the skill on all platforms. The `.claude-plugin/` manifests (Step 6.5) are additive: they make the same skill installable through Claude Code's native plugin system (`/plugin marketplace add`), which brings in-tool install, updates, and enable/disable. Because the skill has no `skills/` subdirectory, Claude Code discovers the root SKILL.md automatically (root-fallback). Do NOT add a `.claude/` directory inside a skill — it can shadow plugin skill discovery.
+**Important:** The SKILL.md file with its frontmatter is what activates the skill on all platforms. Installation is handled by `skillctl install <name>`, which copies the skill to the platform's native path from the canonical registry. Do NOT add a `.claude/` directory inside a skill — it can shadow skill discovery.
 
 **Universal mode:** see `references/universal-standard.md` Section 1 for the
 universal directory layout. All platform-specific directories and files are
@@ -658,7 +651,6 @@ omitted.
 | Code size | <1000 lines | >2000 lines |
 | Maintenance | Single developer | Team |
 | Structure | Single SKILL.md | Multiple component SKILL.md files |
-| marketplace.json | Shipped by default (`.claude-plugin/`, Step 6.5) | Shipped by default (official fields only) |
 
 **Default:** Start with simple skill. Upgrade to complex suite only when warranted.
 
@@ -921,15 +913,14 @@ This skill is activated when user mentions:
 
 ## Phase 4 Checklist
 
-- [ ] Domain entities listed (organizations, objects, geography)
-- [ ] Actions/verbs listed
-- [ ] 50+ keywords generated across all metrics
-- [ ] Question variations mapped
-- [ ] Negative scope defined
-- [ ] Description created (<=1024 chars, packed with keywords)
-- [ ] Keywords documented in SKILL.md body
-- [ ] Activation examples (positive and negative)
-- [ ] Mental detection simulation (all use cases covered)
+- [ ] Category assigned from taxonomy (description-guide.md Section 2)
+- [ ] Entities extracted (data types, fields, domain terms)
+- [ ] Scenarios generated (4-6 use case labels, 2-3 anti-scenarios)
+- [ ] Description rendered from template (A {category} for {domain}...)
+- [ ] Coverage verified (each use case query has lexical match)
+- [ ] Quick Profile section written (Category, Input, Output, When to use, When not)
+- [ ] README.md generated (installation only, no workflow)
+- [ ] No per-skill AGENTS.md generated (selection info in Quick Profile)
 
 ---
 
@@ -980,7 +971,8 @@ Execute these 10 steps in order:
 mkdir -p skill-name/{scripts,references,assets}
 ```
 
-Every skill also gets a `.claude-plugin/` directory (see Step 6.5) so Claude Code can install it as a plugin.
+The skill directory itself carries no installer; installation is handled by
+`skillctl install <name>`.
 
 ### Step 2: Write SKILL.md (PRIMARY FILE - CREATE FIRST)
 
@@ -1014,52 +1006,29 @@ metadata:
 - `metadata.author`: Required
 - `metadata.version`: Required, semver format
 
-**Body structure (must be <500 lines total including frontmatter):**
+**Body structure (must be <500 lines total including frontmatter, starts with Quick Profile):**
 
 ```markdown
-# Skill Name
+# /skill-name
 
-[Introduction: 2-3 paragraphs]
+## Quick Profile
 
-## When to Use This Skill
+**Category**: {category}
+**Input**: {input type and columns}
+**Output**: {output type and structure}
+**When to use**: {scenarios, comma-separated}
+**When not**: {anti-scenarios, comma-separated}
 
-[Activation triggers with examples]
+## Trigger
+/{skill-name}
 
-## Data Source
+## Workflow
 
-[API summary, link to references/api-guide.md for details]
-
-## Workflows
-
-### Workflow 1: [Name]
 [Step-by-step with commands and examples]
 
-### Workflow 2: [Name]
-[Step-by-step with commands and examples]
+## Output Example
 
-## Available Scripts
-
-[Brief description of each script, inputs, outputs]
-
-## Available Analyses
-
-[Brief description of each analysis, link to references/ for details]
-
-## Error Handling
-
-[Common errors and how the skill handles them]
-
-## Keywords for Detection
-
-[Organized keyword list]
-
-## Usage Examples
-
-[3-5 complete examples with question, flow, and answer]
-
-## References
-
-[Table of reference files and what they contain]
+[Concrete output JSON or CSV snippet]
 ```
 
 **Keeping under 500 lines:** Move detailed content to `references/`:
@@ -1067,62 +1036,26 @@ metadata:
 - Detailed methodologies go to `references/analysis-methods.md`
 - Troubleshooting goes to `references/troubleshooting.md`
 
-### Step 2.5: Write AGENTS.md (Companion Instruction File)
+### Step 2.5: Add Agent Constraints (in SKILL.md, no per-skill AGENTS.md)
 
-Generate an AGENTS.md alongside SKILL.md to maximize cross-tool reach. ~15 tools read AGENTS.md (AAIF-governed format), including some that don't read SKILL.md (Augment, Continue.dev, Zed).
+**Per-skill AGENTS.md is no longer generated.** Selection information (category,
+input, output, when to use, when not) lives in the SKILL.md body's `## Quick Profile`
+section. The factory root `AGENTS.md` (at the agent-skill-creator repo root) is
+unaffected.
 
-**Template:**
+**Agent Constraints** (at least 3 verifiable "Must" or "Must NOT" clauses) are
+now added to the SKILL.md body instead of a separate AGENTS.md. Place them as a
+short section after the workflow:
 
 ```markdown
-# skill-name
-
-> [One-line description from SKILL.md frontmatter]
-
-## Purpose
-
-[2-3 sentences explaining what this skill does and when to use it]
-
-## Activation
-
-This skill activates when users ask about [domain keywords]. Invoke with `/skill-name` on platforms that support slash commands, or ask naturally.
-
-**Example queries:**
-- "[example 1]"
-- "[example 2]"
-- "[example 3]"
-
-## Usage
-
-[Brief usage instructions — what to provide, what to expect back]
-
-## Implementation
-
-Full skill definition, scripts, and references are in the SKILL.md file and accompanying directories. See SKILL.md for complete instructions.
-
-## Files
-
-- `SKILL.md` — Full skill definition (agentskills.io format)
-- `scripts/` — Executable code (`run_pipeline.py` orchestrator for multi-script skills, `run_evals.py` eval runner)
-- `references/` — Detailed documentation
-- `assets/` — Templates, configs
-- `evals/` — Bundled eval spec: binary checks + golden cases
-- `install.sh` — Cross-platform installer
-
 ## Agent Constraints
 
-1. Must NOT <first constraint derived from Phase 2 business rules>
-2. Must <second constraint derived from Phase 2 use cases>
-3. Must NOT <third constraint derived from Phase 2 or Phase 4>
-4. Must <fourth constraint — at least one positive "Must" clause>
-
-Derived from Phase 2 discussions, not generic best practices. Each constraint must be verifiable (the agent either followed it or didn't).
+1. Must NOT <constraint derived from Phase 2 business rules>
+2. Must <constraint derived from Phase 2 use cases>
+3. Must NOT <constraint derived from Phase 2 or Phase 4>
 ```
 
-**Rules:**
-- Keep AGENTS.md concise (~50-100 lines). It is a pointer and summary, not a duplicate of SKILL.md.
-- Include enough context for tools that ONLY read AGENTS.md (they will not see SKILL.md).
-- Include activation keywords so description-based matching works.
-- Append a `## Agent Constraints` section with at least 3 verifiable "Must" or "Must NOT" clauses. Derive constraints from Phase 2 discussions, not from generic best practices. Each constraint must be verifiable (the agent either followed it or didn't).
+Derive constraints from Phase 2 discussions, not from generic best practices. Each constraint must be verifiable (the agent either followed it or didn't).
 
 ### Step 3: Implement Python Scripts
 
@@ -1337,62 +1270,20 @@ See `phase2-eval-assessment.md` for the full format, criteria rules, the rollout
 spec directly). On by default; `--no-eval` skips this step and emits no `evals/`
 directory.
 
-### Step 6: Generate install.sh
+### Step 6: No per-skill installer (use skillctl)
 
-Generate the installer from `scripts/install-template.sh` — the canonical template. Replace `{{SKILL_NAME}}` with the actual skill name and `chmod +x`:
+Generated skills do not ship an installer. Installation is unified through
+`skillctl install <name>`, which resolves the platform skills path from
+`scripts/platforms.py` and copies the skill directory directly.
 
-```bash
-# During skill generation:
-sed "s/{{SKILL_NAME}}/skill-name/g" scripts/install-template.sh > skill-name/install.sh
-chmod +x skill-name/install.sh
-```
-
-The template handles:
-- POSIX-compatible shell (`set -eu`, no bashisms)
+skillctl handles:
 - 17 platforms (see `scripts/platforms.py`, the single source of truth): claude-code, copilot, cursor, windsurf, cline, codex, gemini, kiro, kilo-code, factory, junie, trae, goose, opencode, roo-code, antigravity, universal
 - Corrected paths: Codex → `~/.agents/skills/`, Windsurf → `.windsurf/rules/` (project) / `global_rules.md` (global)
 - Format adapters: auto-generates `.mdc` for Cursor, `.md` rules for Windsurf, plain `.md` for Cline/Roo/Trae
-- Universal `.agents/skills/` secondary symlink after every install
+- Universal `.agents/skills/` copy after every install
 - `--all` flag to install to every detected tool at once
-- `--dry-run` for preview without changes
 
-### Step 6.5: Generate Claude Code plugin manifests
-
-Generate `.claude-plugin/plugin.json` and `.claude-plugin/marketplace.json` from
-the canonical templates in `scripts/claude-plugin-template/`. This makes the
-skill installable through Claude Code's native plugin system — in-tool install,
-updates, and enable/disable — with two commands:
-
-```
-/plugin marketplace add <github-owner>/<repo>     # or a local path: /plugin marketplace add ./skill-name
-/plugin install <skill-name>@<skill-name>
-```
-
-Fill the placeholders from the SKILL.md frontmatter:
-
-| Placeholder | Source |
-|---|---|
-| `{{SKILL_NAME}}` | frontmatter `name` (must match exactly) |
-| `{{SKILL_VERSION}}` | frontmatter `metadata.version` |
-| `{{SKILL_AUTHOR}}` | frontmatter `metadata.author` |
-| `{{SKILL_DESCRIPTION}}` | one-line summary derived from `description` — single line, no double quotes, so the JSON stays valid |
-
-```bash
-# During skill generation (repeat for marketplace.json):
-sed -e "s/{{SKILL_NAME}}/skill-name/g" \
-    -e "s/{{SKILL_VERSION}}/1.0.0/g" \
-    -e "s/{{SKILL_AUTHOR}}/Author Name/g" \
-    -e "s/{{SKILL_DESCRIPTION}}/One-line description/g" \
-    scripts/claude-plugin-template/plugin.json > skill-name/.claude-plugin/plugin.json
-```
-
-After generation, verify both files parse (`python3 -c "import json,sys; json.load(open(sys.argv[1]))" ...`)
-and that the `name` fields match the SKILL.md `name`. Claude Code discovers the
-skill's root SKILL.md automatically (root-fallback — no `skills/` subdirectory
-needed). Never create a `.claude/` directory inside a generated skill; it can
-shadow plugin skill discovery.
-
-### Step 6.6: Ship the evolution toolkit
+### Step 6.5: Ship the evolution toolkit
 
 Copy the maintenance loop into the skill so it can check itself after delivery
 — no creator repo needed:
@@ -1428,28 +1319,14 @@ git clone <repo-url> ~/.agents/skills/skill-name
 
 Works with Codex CLI, Gemini CLI, Kiro, Antigravity, and other tools that read `~/.agents/skills/`.
 
-### Claude Code (plugin — recommended)
-
-```
-/plugin marketplace add <github-owner>/<repo>    # or local: /plugin marketplace add ./skill-name
-/plugin install skill-name@skill-name
-```
-
-### Using install.sh (Recommended for other tools)
+### Using skillctl (Recommended)
 
 ```bash
-chmod +x install.sh
-./install.sh                          # Auto-detect platform
-./install.sh --platform claude-code   # Claude Code
-./install.sh --platform cursor        # Cursor (auto-generates .mdc)
-./install.sh --all                    # All detected platforms
-./install.sh --dry-run                # Preview without installing
-```
-
-### Alternative: npx
-
-```bash
-npx skills add <repo-url>
+skillctl install <skill-name>                          # Auto-detect platform
+skillctl install <skill-name> --platform claude-code   # Claude Code
+skillctl install <skill-name> --platform cursor        # Cursor (auto-generates .mdc)
+skillctl install <skill-name> --all                    # All detected platforms
+skillctl update <skill-name>                           # Upgrade
 ```
 
 ### Manual Installation
@@ -1488,8 +1365,8 @@ npx skills add <repo-url>
 
 Every skill must include these harness patterns as executable code, not as markdown instructions.
 
-**a. Self-bootstrapping wrappers at the repo root:**
-- `./skill-name` (bash) — auto-creates venv, installs uv if missing, installs deps on first run. Bootstrap messages to stderr.
+**a. Runtime entry wrappers at the repo root:**
+- `./skill-name` (bash) — auto-creates venv, installs uv if missing, installs deps on first run. Startup messages to stderr.
 - `.\skill-name.ps1` (PowerShell) — same behavior for Windows users.
 
 **b. Input validation module (`scripts/validate_inputs.py` or integrated into main script):**
@@ -1603,7 +1480,7 @@ Main Decisions:
 Next Steps:
 1. Get API key: [instructions or link]
 2. Configure: export API_KEY_VAR="your_key"
-3. Install: ./install.sh
+3. Install: skillctl install <skill-name>
 4. Test: "[example query 1]"
 
 Evals:
@@ -1625,27 +1502,29 @@ See README.md for complete multi-platform installation instructions.
 | 4 | `references/*.md` | Detailed documentation, self-contained |
 | 5 | `assets/*.json` | Real values, validated JSON |
 | 5.5 | `evals/*.eval.md` + `scripts/run_evals.py` | Bundled loss function; skip if `--no-eval` |
-| 6 | `install.sh` | Cross-platform installer, `chmod +x` |
-| 6.5 | `.claude-plugin/*.json` | Plugin manifests from `scripts/claude-plugin-template/`; names match SKILL.md |
-| 6.6 | `scripts/evolve.py` + staleness/drift modules | Shipped self-maintenance loop; failures append evidence to `EVOLUTION.md` |
+| 6 | — | No per-skill installer; installation uses `skillctl install <name>` |
+| 6.5 | `scripts/evolve.py` + staleness/drift modules | Shipped self-maintenance loop; failures append evidence to `EVOLUTION.md` |
 | 7 | `README.md` | Multi-platform install instructions |
 | 8 | Run `validate.py` + `check_pipeline.py` | Must pass before delivery |
 | 9 | Run `security_scan.py` | Must pass before delivery |
 | 10 | Report results | Summary to user |
 
 **Universal mode:** see `references/universal-standard.md` for the complete
-file list. The generated file set drops install.sh, bootstrap wrappers,
-.claude-plugin/, evolve.py, staleness/drift/dep-health scripts, and
-platform-specific activation examples. Domain knowledge goes in `assets/` data
-files, not hardcoded in Python. Pipelines must produce structured diagnostic
-output on failure. Skill-class outputs include Agent behavior, Diagnostics, and
-Feature discovery sections in SKILL.md. Use the simplified eval harness from
-Section 5 of `references/universal-standard.md`.
+file list. The generated file set drops the evolution toolkit (evolve.py,
+staleness/drift/dep-health scripts) and platform-specific activation examples.
+Domain knowledge goes in `assets/` data files, not hardcoded in Python.
+Pipelines must produce structured diagnostic output on failure. Skill-class
+outputs include Agent behavior, Diagnostics, and Feature discovery sections in
+SKILL.md. Use the simplified eval harness from Section 5 of
+`references/universal-standard.md`.
 
 ## Phase 5 Checklist
 
 - [ ] Directory structure created
+- [ ] README.md written (installation-only, no workflow description)
 - [ ] SKILL.md created FIRST with spec-compliant frontmatter
+- [ ] SKILL.md body starts with ## Quick Profile section
+- [ ] Quick Profile has: Category, Input, Output, When to use (≥2), When not (≥1)
 - [ ] SKILL.md is <500 lines
 - [ ] Frontmatter has: name, description (<=1024 chars), license, metadata (author, version)
 - [ ] Frontmatter has: `activation: /{skill-name}`
@@ -1666,18 +1545,18 @@ Section 5 of `references/universal-standard.md`.
 
 - [ ] `--check-prereqs` command returns structured JSON
 - [ ] `--diagnostics` command returns skill metadata
-- [ ] Self-bootstrapping wrappers: `./skill-name` (bash) + `.\skill-name.ps1` (PowerShell)
+- [ ] Runtime entry wrappers: `./skill-name` (bash) + `.\skill-name.ps1` (PowerShell)
 - [ ] All errors as JSON to stderr with error_type classification
 - [ ] References written with real, self-contained content
 - [ ] Assets created with valid JSON and real values
 - [ ] Eval spec emitted (`evals/<name>.eval.md` + `scripts/run_evals.py`) unless `--no-eval`
 - [ ] Eval spec validates (`python3 scripts/run_evals.py --validate` → VALID)
 - [ ] At least one golden case marked `"split": "test"` (holdout — skipped by default, scored only with `--include-holdout`, never fed to an optimization loop)
-- [ ] `install.sh` generated with cross-platform support
-- [ ] `.claude-plugin/plugin.json` + `marketplace.json` generated (valid JSON, `name` fields match SKILL.md)
+- [ ] No per-skill installer (installation uses `skillctl install <name>`)
+- [ ] No per-skill AGENTS.md generated (selection info is in Quick Profile)
 - [ ] Evolution toolkit shipped (`scripts/evolve.py` + staleness/drift/dep-health modules; `python3 scripts/evolve.py` exits 0)
 - [ ] Eval spec has a `judge` block with a pinned model + known-bad canary when any criterion is `llm-judge`
-- [ ] `README.md` written with multi-platform install instructions (including `/plugin marketplace add`)
+- [ ] `README.md` written with multi-platform install instructions (via `skillctl`)
 - [ ] `requirements.txt` created (if third-party dependencies used)
 - [ ] Spec validation passed (`scripts/validate.py`)
 - [ ] Contract validation passed (`scripts/validate.py --check-contract`)

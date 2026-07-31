@@ -3,16 +3,9 @@
 Canonical registry of agent-skills install targets.
 
 One source of truth for platform name -> install paths and detection markers.
-Consumed by `scripts/skill_registry.py`. The shell installers
-(`scripts/install-template.sh`, `scripts/bootstrap.sh`) hand-maintain their own
-tables for now -- they ship into generated skills and cannot import Python at
-install time. A drift test in `scripts/tests/test_platforms.py` flags when the
-shell tables fall out of sync with this file; a future consolidation can
-generate the shell tables from this source.
-
-Source of truth for the paths is `scripts/install-template.sh` Step
-"INSTALL_DIR resolution" (the project/user case arms), since that is the script
-that real users run.
+Consumed by `scripts/skill_registry.py` and `scripts/skillctl/install.py`.
+The unified `skillctl install` CLI resolves platform paths from this registry,
+so no shell installer tables need to be maintained for per-skill installs.
 """
 
 from __future__ import annotations

@@ -37,7 +37,7 @@ These platforms read SKILL.md natively with no conversion needed:
 
 ## Tier 2 — SKILL.md via Format Adapter
 
-These platforms use their own rule format. The installer auto-generates the native format from SKILL.md:
+These platforms use their own rule format. `skillctl` auto-generates the native format from SKILL.md:
 
 | Platform | Type | Native Format | Adaptation | Install Path | Limitations |
 |----------|------|--------------|------------|-------------|-------------|
@@ -121,7 +121,7 @@ Which paths are read by multiple tools:
 
 ## Format Adapters
 
-The installer automatically converts SKILL.md to platform-native formats when needed. No separate format files are committed to the skill repo — SKILL.md remains the single source of truth.
+`skillctl` automatically converts SKILL.md to platform-native formats when needed. No separate format files are committed to the skill repo — SKILL.md remains the single source of truth.
 
 ### Cursor (.mdc)
 
@@ -177,10 +177,9 @@ Extracts SKILL.md body as plain markdown into `.junie/skills/` directory.
 
 ### Claude Code
 
-```
-# Native plugin path (recommended — in-tool install, updates, enable/disable)
-/plugin marketplace add <github-owner>/<repo>     # or a local path: /plugin marketplace add ./skill-name
-/plugin install skill-name@skill-name
+```bash
+# Recommended — via skillctl
+skillctl install <skill-name> --platform claude-code
 ```
 
 ```bash
@@ -243,10 +242,10 @@ cp -r skill-name/ .kiro/skills/skill-name/
 
 ```bash
 # Project-level
-./install.sh --platform windsurf --project
+skillctl install <skill-name> --platform windsurf --project
 
 # User-level (appends to global_rules.md)
-./install.sh --platform windsurf
+skillctl install <skill-name> --platform windsurf
 ```
 
 ### Cline
@@ -282,14 +281,14 @@ cp -r skill-name/ ~/.config/opencode/skills/skill-name/
 ### Trae
 
 ```bash
-./install.sh --platform trae
+skillctl install <skill-name> --platform trae
 # Generates plain .md with type: frontmatter in .trae/rules/
 ```
 
 ### Junie
 
 ```bash
-./install.sh --platform junie
+skillctl install <skill-name> --platform junie
 # Generates guidelines.md in .junie/skills/
 ```
 
@@ -317,14 +316,7 @@ Read by: Codex CLI, Gemini CLI (fallback), OpenCode, Goose, Cline (fallback), Ro
 ### Install All
 
 ```bash
-./install.sh --all
-```
-
-### Alternative: npx
-
-```bash
-npx skills add <repo-url>
-npx skills add ./local-skill-dir
+skillctl install <skill-name> --all
 ```
 
 ### Claude Desktop / claude.ai (Web)
@@ -346,7 +338,7 @@ python scripts/export_utils.py ./skill-name --variant desktop
 | **AGENTS.md** | Most tools | Some tools | N/A | N/A |
 | **Python scripts** | Full | Full | Full | Sandboxed* |
 | **References/docs** | Full | Full | Full | Full |
-| **install.sh** | Full | Full | N/A | N/A |
+| **skillctl** | Full | Full | N/A | N/A |
 
 \* API: No network access, no pip install at runtime
 
@@ -368,7 +360,7 @@ python scripts/export_utils.py ./skill-name --variant desktop
 
 1. **Use each tool's native path**: Don't install Copilot skills to `~/.claude/`. Use `~/.copilot/skills/` for Copilot, `~/.gemini/skills/` for Gemini, etc.
 2. **Output both SKILL.md and AGENTS.md**: Maximizes reach across the entire ecosystem.
-3. **Use install.sh or `npx skills`**: Handles path detection and format conversion automatically.
+3. **Use skillctl**: Handles path detection and format conversion automatically.
 4. **Use `--all` for multi-tool users**: Install to every detected tool with a single command.
 5. **Keep SKILL.md lean**: Under 500 lines. Critical for Windsurf's 6K char limit.
 6. **Test activation on your target platform**: Description-based auto-detect works on ~15 tools. Slash commands on ~12. Manual activation needed for Zed, Aider.

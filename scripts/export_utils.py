@@ -18,7 +18,7 @@ from validate import validate_skill  # noqa: E402
 
 # Directories and files to exclude from exports
 EXCLUDE_DIRS = {
-    '.git', '__pycache__', 'node_modules', '.claude-plugin',
+    '.git', '__pycache__', 'node_modules',
     'venv', 'env', '.venv', '.pytest_cache', '.mypy_cache',
     'dist', 'build'
 }
@@ -170,10 +170,6 @@ def create_export_package(
                 # Filter excluded directories
                 dirs[:] = [d for d in dirs if not _is_excluded_dir(d)]
 
-                # For API variant, exclude .claude-plugin
-                if variant == 'api' and '.claude-plugin' in dirs:
-                    dirs.remove('.claude-plugin')
-
                 for file in files:
                     if not should_include_file(os.path.join(root, file), file):
                         continue
@@ -300,33 +296,23 @@ cp -r {skill_name}/ ~/.agents/skills/{skill_name}/
 
 Works with Codex CLI, Gemini CLI, Kiro, Antigravity, and other tools that read `~/.agents/skills/`.
 
-### Using install.sh (Recommended)
+### Using skillctl (Recommended)
 
-If the skill includes an `install.sh` script:
+Install the unified CLI once, then use the same command on every platform:
 
 ```bash
-# Auto-detect platform and install
-./install.sh
-
-# Install to specific platform
-./install.sh --platform claude-code
-./install.sh --platform copilot
-./install.sh --platform cursor
-
-# Install to ALL detected platforms
-./install.sh --all
-
-# Project-level install
-./install.sh --project
-
-# Preview without installing
-./install.sh --dry-run
+curl -fsSL https://raw.githubusercontent.com/42636161/skillhub/main/install.sh | bash
+skillctl install {skill_name}
 ```
 
-### Alternative: npx
+`skillctl` resolves the current platform's skills directory from the canonical
+platform registry and copies the skill there. Options:
 
 ```bash
-npx skills add ./{skill_name}
+skillctl install {skill_name} --platform cursor   # force a specific platform
+skillctl install {skill_name} --all               # install to all platforms
+skillctl install {skill_name} --dir <path>        # explicit directory
+skillctl update {skill_name}                      # upgrade later
 ```
 
 ### Manual Installation by Platform
@@ -425,19 +411,19 @@ with open('{skill_name}-api-{{version}}.zip', 'rb') as f:
 
 | Platform | Install Method | Updates | marketplace.json |
 |----------|---------------|---------|-----------------|
-| **Universal** | install.sh / copy | git pull | Not used |
-| **Claude Code** | install.sh / copy | git pull | Optional |
-| **GitHub Copilot** | install.sh / copy | git pull | Not used |
-| **Cursor** | install.sh / copy (+ .mdc) | git pull | Not used |
-| **Windsurf** | install.sh / copy | git pull | Not used |
-| **Cline** | install.sh / copy | git pull | Not used |
-| **Codex CLI** | install.sh / copy | git pull | Not used |
-| **Gemini CLI** | install.sh / copy | git pull | Not used |
-| **Kiro** | install.sh / copy | git pull | Not used |
-| **Trae** | install.sh / copy | git pull | Not used |
-| **Goose** | install.sh / copy | git pull | Not used |
-| **OpenCode** | install.sh / copy | git pull | Not used |
-| **Roo Code** | install.sh / copy | git pull | Not used |
+| **Universal** | skillctl / copy | git pull | Not used |
+| **Claude Code** | skillctl / copy | git pull | Optional |
+| **GitHub Copilot** | skillctl / copy | git pull | Not used |
+| **Cursor** | skillctl / copy (+ .mdc) | git pull | Not used |
+| **Windsurf** | skillctl / copy | git pull | Not used |
+| **Cline** | skillctl / copy | git pull | Not used |
+| **Codex CLI** | skillctl / copy | git pull | Not used |
+| **Gemini CLI** | skillctl / copy | git pull | Not used |
+| **Kiro** | skillctl / copy | git pull | Not used |
+| **Trae** | skillctl / copy | git pull | Not used |
+| **Goose** | skillctl / copy | git pull | Not used |
+| **OpenCode** | skillctl / copy | git pull | Not used |
+| **Roo Code** | skillctl / copy | git pull | Not used |
 | **Desktop/Web** | .zip upload | Re-upload | Not used |
 | **Claude API** | API upload | New upload | Not used |
 
@@ -478,7 +464,6 @@ For both packages:
 - `.DS_Store` (system metadata)
 
 For API package additionally:
-- `.claude-plugin/` (Claude Code specific)
 - Large documentation files
 - Example files (size optimization)
 

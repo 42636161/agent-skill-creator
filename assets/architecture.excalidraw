@@ -382,7 +382,7 @@
     {
       "type": "text", "id": "install_text",
       "x": 720, "y": 817, "width": 200, "height": 22,
-      "text": "install.sh / .ps1", "originalText": "install.sh / .ps1",
+      "text": "skillctl", "originalText": "skillctl",
       "fontSize": 17, "fontFamily": 3, "textAlign": "center", "verticalAlign": "middle",
       "strokeColor": "#ffffff", "backgroundColor": "transparent",
       "fillStyle": "solid", "strokeWidth": 1, "strokeStyle": "solid",

@@ -105,27 +105,3 @@ jobs:
         uses: astral-sh/setup-uv@v5
       - name: Run test suite
         run: uv run --with pytest pytest ${{ matrix.pytest_args }}
-
-  powershell:
-    # Syntax-check the Windows installers so a broken .ps1 cannot ship
-    # unnoticed (the headline claim includes Windows tools).
-    runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Parse-check PowerShell installers
-        shell: pwsh
-        run: |
-          $failed = $false
-          Get-ChildItem -Recurse -Filter *.ps1 | ForEach-Object {
-            $errors = $null
-            [System.Management.Automation.Language.Parser]::ParseFile(
-              $_.FullName, [ref]$null, [ref]$errors) | Out-Null
-            if ($errors) {
-              Write-Host "::error file=$($_.FullName)::PowerShell parse errors"
-              $errors | ForEach-Object { Write-Host "  $($_.Message)" }
-              $failed = $true
-            } else {
-              Write-Host "OK: $($_.FullName)"
-            }
-          }
-          if ($failed) { exit 1 }

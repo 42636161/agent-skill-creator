@@ -1,3 +1,24 @@
+## v0.3.1 — git 作者署名更新（2026-07-31）
+
+### 修改
+
+- 本仓库 git 提交作者姓名由自动推断的 `孙一晖` 改为 `srt`（`git config user.name`）。
+- 最近一次提交（chore: remove local installers and plugin manifests）已用新署名重新提交（`git commit --amend --reset-author`），提交内容不变。
+
+### 修改说明
+
+| 项目 | 修改前 | 修改后 |
+|---|---|---|
+| 提交作者 | `孙一晖 <syh@sunyihuideAir2.local>` | `srt <syh@sunyihuideAir2.local>` |
+
+### 改动文件
+
+```
+VERSION.md — 新增：本次署名修改说明
+```
+
+---
+
 ## v0.3.0 — 质量框架实现（2026-07-30）
 
 ### 新增

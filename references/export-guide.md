@@ -26,7 +26,7 @@ Different Claude platforms use different distribution methods:
 
 | Platform | Installation Method | Requires Export? |
 |----------|-------------------|------------------|
-| Claude Code | Plugin/directory | ❌ No (native) |
+| Claude Code | Directory (skillctl or git clone) | ❌ No (native) |
 | Claude Desktop | .zip upload | ✅ Yes |
 | claude.ai | .zip upload | ✅ Yes |
 | Claude API | Programmatic upload | ✅ Yes |
@@ -110,7 +110,6 @@ python scripts/export_utils.py ./my-skill --output-dir ./dist
 - ✅ requirements.txt
 
 **Excludes:**
-- ❌ .claude-plugin/ (not used by Desktop/Web)
 - ❌ .git/ (version control not needed)
 - ❌ Development artifacts
 
@@ -132,7 +131,6 @@ python scripts/export_utils.py ./my-skill --output-dir ./dist
 - ✅ requirements.txt
 
 **Excludes:**
-- ❌ .claude-plugin/ (not used by API)
 - ❌ .git/ (not needed)
 - ❌ Heavy documentation files
 - ❌ Example files (size optimization)
@@ -283,7 +281,6 @@ exports/
 - `__pycache__/` - Python compiled files
 - `node_modules/` - JavaScript dependencies
 - `.venv/`, `venv/`, `env/` - Virtual environments
-- `.claude-plugin/` - Claude Code specific (API variant only)
 
 **Files:**
 - `.env` - Environment variables (may contain secrets)
@@ -380,11 +377,9 @@ git tag v1.1.0
 
 **Options:**
 
-**Option A: Git Repository**
+**Option A: skillctl**
 ```bash
-# Claude Code users (recommended)
-git clone repo-url
-/plugin marketplace add ./skill-name
+skillctl install skill-name
 ```
 
 **Option B: Direct Download**

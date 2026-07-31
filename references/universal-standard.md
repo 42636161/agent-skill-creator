@@ -37,13 +37,6 @@ docs, executable logic, tests/evals, assets, and dependency declarations.
 
 ### 1.2 Removed (vs Default Mode)
 
-- `.claude-plugin/`
-- platform marketplace files
-- `install.sh`
-- shell bootstrap wrappers
-- PowerShell bootstrap wrappers
-- platform detection logic
-- auto-install logic
 - publish/update/search commands
 - `scripts/evolve.py`
 - `scripts/staleness_check.py`

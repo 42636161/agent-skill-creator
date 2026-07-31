@@ -157,8 +157,7 @@ Directory: climate-agriculture-analysis/
 │   └── methodology.md    (analysis methods explained)
 ├── assets/
 │   └── report_template.html
-├── install.sh            (cross-platform installer)
-└── README.md             (installation for 7+ platforms)
+└── README.md             (installation via skillctl)
 
 SKILL.md frontmatter:
   name: climate-agriculture-analysis
@@ -191,8 +190,8 @@ Creating skill: climate-agriculture-analysis
 [6/10] Written scripts/generate_report.py (156 lines)
 [7/10] Written references/api-guide.md
 [8/10] Written references/methodology.md
-[9/10] Generated install.sh (cross-platform)
-[10/10] Written README.md (multi-platform instructions)
+[9/10] Written README.md (install via skillctl)
+[10/10] Installation ready (skillctl)
 ```
 
 ### Step 6: Validation
@@ -219,7 +218,7 @@ Security Scan:
 
 Result: 10/10 checks passed. Skill is ready for installation.
 
-Would you like to install it now? Run: ./install.sh
+Would you like to install it now? Run: skillctl install climate-agriculture-analysis
 ```
 
 ## Advanced Configuration Options

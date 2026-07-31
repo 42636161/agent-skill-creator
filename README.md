@@ -24,7 +24,8 @@
 
 ```bash
 # macOS / Linux — paste into Terminal
-curl -fsSL https://raw.githubusercontent.com/FrancyJGLisboa/agent-skill-creator/main/scripts/bootstrap.sh | sh
+curl -fsSL https://raw.githubusercontent.com/42636161/skillhub/main/install.sh | bash
+skillctl install agent-skill-creator
 ```
 
 Then open your AI tool and describe what you do:
@@ -110,16 +111,21 @@ The macOS/Linux one-liner is in [Quick start](#quick-start) above. Windows:
 **Windows (PowerShell):**
 
 ```powershell
-irm https://raw.githubusercontent.com/FrancyJGLisboa/agent-skill-creator/main/scripts/bootstrap.ps1 | iex
+irm https://raw.githubusercontent.com/42636161/skillhub/main/install.ps1 | iex
+skillctl install agent-skill-creator
 ```
 
 **Windows (Command Prompt):**
 
 ```cmd
-powershell -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.com/FrancyJGLisboa/agent-skill-creator/main/scripts/bootstrap.ps1 | iex"
+powershell -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.com/42636161/skillhub/main/install.ps1 | iex"
+skillctl install agent-skill-creator
 ```
 
-The installer clones to `~/.agents/skills/agent-skill-creator` and links to every detected platform (Claude Code, Copilot, Gemini CLI, Kiro, Cline, Roo Code, Kilo Code, Factory Droid, Cursor, Goose, OpenCode). To update later, run `cd ~/.agents/skills/agent-skill-creator && git pull`.
+`skillctl` installs the factory into every detected platform's skills path
+(Claude Code, Copilot, Gemini CLI, Kiro, Cline, Roo Code, Kilo Code, Factory
+Droid, Cursor, Goose, OpenCode). To update later, run
+`skillctl update agent-skill-creator`.
 
 > **Advanced:** Want to install to a single tool, or already have a local clone? See the [Installation Guide](docs/INSTALL.md).
 
@@ -158,27 +164,25 @@ Installed at: ~/.claude/skills/sales-report-skill
 
 The agent detects your platform, installs the skill to the right location, and tells you exactly how to invoke it. No manual steps.
 
-The generated skill includes a cross-platform installer (`install.sh`) that auto-detects all 17 supported platforms, generates format adapters for Cursor (.mdc), Windsurf (.md rules), and Junie (guidelines.md) automatically, and creates a universal `~/.agents/skills/` symlink so the skill is discoverable by multiple tools at once.
+Skills install through the unified `skillctl` CLI (`curl -fsSL .../skillhub/main/install.sh | bash`), which resolves all 17 supported platforms from the canonical registry, generates format adapters for Cursor (.mdc), Windsurf (.md rules), and Junie (guidelines.md) automatically, and copies the skill to the correct location — including a universal `~/.agents/skills/` path so the skill is discoverable by multiple tools at once.
 
 ```
 sales-report-skill/
 ├── SKILL.md          # Skill definition (activates with /sales-report-skill)
 ├── AGENTS.md         # Companion file (read by many tools for cross-tool reach)
-├── .claude-plugin/   # plugin.json + marketplace.json (/plugin install path)
 ├── scripts/          # Functional Python code + run_evals.py + evolve.py (self-maintenance)
 ├── references/       # Detailed documentation
 ├── assets/           # Templates, configs
 ├── evals/            # Bundled eval spec + golden cases (the skill's own metric)
-├── install.sh        # Cross-platform installer (17 platforms, format adapters, --all flag)
-└── README.md         # Installation instructions
+└── README.md         # Installation instructions (install via skillctl)
 ```
 
-Your team installs it the same way — one `git clone` to their tool's path — and invokes it with `/sales-report-skill`.
+Your team installs it the same way — `skillctl install sales-report-skill`, or one `git clone` to their tool's path — and invokes it with `/sales-report-skill`.
 
 ---
 
-> **Advanced:** 只想要纯 skill 能力包、不含任何平台适配器？只需在描述前加上 `--universal`。
-> 生成的技能不含 install.sh 与平台格式适配器，适合集成到自定义分发流程。
+> **Advanced:** 只想要纯 skill 能力包、不含任何平台格式适配器？只需在描述前加上 `--universal`。
+> 所有技能（含默认模式）都通过 `skillctl install <name>` 安装，不再各自携带安装器。
 > 详见 [`references/universal-standard.md`](references/universal-standard.md)。
 
 
@@ -428,7 +432,7 @@ All commands use exit code `0` for success, `1` for errors. All support `--json`
 
 **Platform not auto-detected**: Use `--platform cursor` (or copilot, windsurf, codex, gemini, kiro, trae, goose, opencode, roo-code, kilo-code, factory, junie, cline, antigravity, universal) to specify explicitly.
 
-**Install to all tools at once**: Inside a generated skill, use `./install.sh --all` (macOS/Linux) or `.\install.ps1 -All` (Windows) to install to every detected platform in one command.
+**Install to all tools at once**: Use `skillctl install <name> --all` to install to every detected platform in one command.
 
 ---
 
@@ -442,15 +446,11 @@ agent-skill-creator/
   CODE_OF_CONDUCT.md            # Contributor Covenant
   CHANGELOG.md                  # Version history
   LICENSE                       # MIT
-  install.sh / install.ps1      # Self-installer for cloned repos (macOS/Linux, Windows)
   docs/
     INSTALL.md                  # Full installation guide (17 platforms, per-tool paths)
     index.html                  # GitHub Pages landing page
-  .claude-plugin/               # plugin.json + marketplace.json (/plugin marketplace add)
   scripts/
-    bootstrap.sh / .ps1 / .bat  # One-liner bootstrap (macOS/Linux, PowerShell, cmd)
-    install-skill.sh / .ps1     # Universal skill installer
-    install-template.sh / .ps1  # Template for generated skills' installers
+    skillctl/                   # Unified skill CLI: search / install / publish / update
     platforms.py                # Canonical 17-platform registry (single source of truth)
     validate.py                 # SKILL.md spec compliance checker
     security_scan.py            # Secrets + code patterns + instruction-body injection + endpoint audit
@@ -460,7 +460,6 @@ agent-skill-creator/
     skill_document.py           # SKILL.md parser (shared by the tools above)
     run_evals_template.py       # Eval runner bundled into generated skills (rollout, regression gate, judge, holdout)
     evolve_template.py          # Self-maintenance loop bundled into generated skills (evolve.py)
-    claude-plugin-template/     # Plugin manifest templates bundled into generated skills
     staleness_check.py          # Staleness: review dates, deps, schema drift (--record → EVOLUTION.md)
     dependency_health.py        # API dependency reachability check
     schema_drift.py             # API schema drift detection
@@ -523,4 +522,3 @@ MIT
 - [Pipeline Phases](references/pipeline-phases.md)
 - [Installation Guide](docs/INSTALL.md)
 - [Export Guide](references/export-guide.md)
-# skillhub

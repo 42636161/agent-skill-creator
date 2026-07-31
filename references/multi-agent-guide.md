@@ -47,8 +47,6 @@ Based on the cluster analysis, the system designs the suite directory:
 ```
 ecommerce-suite/
 ├── SKILL.md                        # Suite-level overview (<500 lines)
-├── .claude-plugin/
-│   └── marketplace.json            # Suite manifest (official fields only)
 ├── skills/
 │   ├── sales-monitor/
 │   │   ├── SKILL.md                # Sales-specific instructions
@@ -73,7 +71,6 @@ ecommerce-suite/
 │       └── executive_template.html
 ├── references/
 │   └── api-guide.md                # Shared API documentation
-├── install.sh                      # Installs entire suite
 └── README.md                       # Multi-platform instructions
 ```
 
@@ -109,44 +106,6 @@ When the user asks for a "full store overview" or "weekly executive summary",
 invoke executive-reports which aggregates data from all three other skills.
 ```
 
-## Suite-Level marketplace.json
-
-For complex suites that need Claude Code plugin registration, a `marketplace.json` is generated with **only official fields**:
-
-```json
-{
-  "name": "ecommerce-suite",
-  "plugins": [
-    {
-      "name": "sales-monitor",
-      "description": "Monitor e-commerce sales, revenue trends, order volumes, and conversion rates using Shopify data.",
-      "source": "./skills/sales-monitor/",
-      "skills": ["./skills/sales-monitor/"]
-    },
-    {
-      "name": "customer-analytics",
-      "description": "Analyze customer behavior, segmentation, cohort retention, and churn patterns from e-commerce data.",
-      "source": "./skills/customer-analytics/",
-      "skills": ["./skills/customer-analytics/"]
-    },
-    {
-      "name": "inventory-tracker",
-      "description": "Track inventory stock levels, predict reorder points, and alert on low-stock items.",
-      "source": "./skills/inventory-tracker/",
-      "skills": ["./skills/inventory-tracker/"]
-    },
-    {
-      "name": "executive-reports",
-      "description": "Generate executive dashboards and PDF summaries aggregating sales, customer, and inventory data.",
-      "source": "./skills/executive-reports/",
-      "skills": ["./skills/executive-reports/"]
-    }
-  ]
-}
-```
-
-**Important**: The marketplace.json uses ONLY the official fields: `name` and `plugins` at the top level, and `name`, `description`, `source`, `skills` per plugin entry. No `version`, `author`, `repository`, `tags`, `icon`, or other non-standard fields.
-
 ## Suite Examples
 
 ### Financial Suite
@@ -156,7 +115,6 @@ For complex suites that need Claude Code plugin registration, a `marketplace.jso
 ```
 financial-suite/
 ├── SKILL.md
-├── .claude-plugin/marketplace.json
 ├── skills/
 │   ├── stock-tracker/         # Real-time and historical price data
 │   ├── portfolio-manager/     # Holdings, allocation, performance
@@ -165,7 +123,6 @@ financial-suite/
 │   ├── market_data_client.py  # Alpha Vantage + Yahoo Finance
 │   └── financial_utils.py     # Common calculations (returns, ratios)
 ├── references/
-├── install.sh
 └── README.md
 ```
 
@@ -182,7 +139,6 @@ financial-suite/
 ```
 climate-suite/
 ├── SKILL.md
-├── .claude-plugin/marketplace.json
 ├── skills/
 │   ├── historical-trends/     # Long-term climate data analysis
 │   ├── forecast-monitor/      # Short-term forecast tracking
@@ -191,7 +147,6 @@ climate-suite/
 │   ├── climate_data_client.py # NOAA + Open-Meteo connections
 │   └── geo_utils.py           # Geographic region handling
 ├── references/
-├── install.sh
 └── README.md
 ```
 

@@ -37,7 +37,7 @@
     <h1>Describe the workflow. Ship the skill.</h1>
     <p class="hero__lede">A plain-English description — or a PDF, a link, a half-working
     script — goes in. A validated, security-scanned agent skill comes out: functional
-    code, its own eval suite, a cross-platform installer. The same skill runs on
+    code, its own eval suite, unified skillctl install. The same skill runs on
     Claude&nbsp;Code, Cursor, Copilot, Gemini, and 13&nbsp;more.</p>
     <div class="hero__ctas">
       <a class="btn btn--accent btn--lg" href="https://github.com/FrancyJGLisboa/agent-skill-creator">View on GitHub</a>
@@ -98,10 +98,10 @@
     <li class="step" id="install">
       <span class="stage">3.0</span>
       <h3>Install everywhere</h3>
-      <p>One skill, seventeen targets. Claude Code gets a native
-      <code>/plugin install</code> path; Cursor gets <code>.mdc</code> rules; Copilot,
-      Gemini, Windsurf, Cline, Codex and the rest get their own native formats from
-      one auto-detecting installer. Your colleague types one command and has the same
+      <p>One skill, seventeen targets. Cursor gets <code>.mdc</code> rules; Windsurf,
+      Trae, and Junie get their own native formats; Claude Code, Copilot, Gemini,
+      Cline, Codex and the rest get plain SKILL.md copies from the unified
+      <code>skillctl</code> CLI. Your colleague types one command and has the same
       skill in their tool.</p>
     </li>
 
@@ -150,17 +150,18 @@
   <div class="start__block">
     <p class="start__label">macOS / Linux — one line</p>
     <div class="codewrap">
-      <pre><code id="cmd-bootstrap">curl -fsSL https://raw.githubusercontent.com/FrancyJGLisboa/agent-skill-creator/main/scripts/bootstrap.sh | sh</code></pre>
-      <button class="copybtn" type="button" data-copy="cmd-bootstrap">Copy</button>
+      <pre><code id="cmd-install">curl -fsSL https://raw.githubusercontent.com/42636161/skillhub/main/install.sh | bash
+skillctl install agent-skill-creator</code></pre>
+      <button class="copybtn" type="button" data-copy="cmd-install">Copy</button>
     </div>
   </div>
 
   <div class="start__block">
-    <p class="start__label">Claude Code — native plugin</p>
+    <p class="start__label">Windows (PowerShell) — one line</p>
     <div class="codewrap">
-      <pre><code id="cmd-plugin">/plugin marketplace add FrancyJGLisboa/agent-skill-creator
-/plugin install agent-skill-creator@agent-skill-creator</code></pre>
-      <button class="copybtn" type="button" data-copy="cmd-plugin">Copy</button>
+      <pre><code id="cmd-install-win">irm https://raw.githubusercontent.com/42636161/skillhub/main/install.ps1 | iex
+skillctl install agent-skill-creator</code></pre>
+      <button class="copybtn" type="button" data-copy="cmd-install-win">Copy</button>
     </div>
   </div>
 

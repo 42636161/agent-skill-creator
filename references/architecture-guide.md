@@ -19,7 +19,6 @@ Before creating any skill, determine whether it should be a **Simple Skill** or 
 | **Maintenance scope** | Single developer | Team or multi-concern |
 | **Domain breadth** | Single domain focus | Spans multiple sub-domains |
 | **Deployment** | Install as one unit | Components may be used independently |
-| **marketplace.json** | Shipped by default (`.claude-plugin/`, Step 6.5) | Shipped by default (official fields only) |
 
 ### 1.2 Decision Flowchart
 
@@ -59,7 +58,7 @@ How many distinct workflows does this skill address?
 
 ## 2. Simple Skill Structure
 
-A Simple Skill is a single, self-contained agent skill that follows the Agent Skills Open Standard. It has one SKILL.md file plus a `.claude-plugin/` manifest pair for the native plugin install path.
+A Simple Skill is a single, self-contained agent skill that follows the Agent Skills Open Standard. It has one SKILL.md file; installation is handled by `skillctl install <name>`.
 
 ### 2.1 Standard Directory Layout
 
@@ -67,16 +66,14 @@ A Simple Skill is a single, self-contained agent skill that follows the Agent Sk
 skill-name/
 ├── SKILL.md          # <500 lines, spec-compliant frontmatter
 ├── AGENTS.md         # Companion instruction file (cross-tool reach)
-├── .claude-plugin/   # plugin.json + marketplace.json (/plugin install path)
 ├── scripts/          # Functional Python code + run_evals.py + evolve.py
 ├── references/       # Detailed documentation (loaded on demand)
 ├── assets/           # Templates, schemas, data files
 ├── evals/            # Bundled eval spec + golden cases
-├── install.sh        # Cross-platform auto-detect installer
 └── README.md         # Multi-platform installation instructions
 ```
 
-**Key rule:** SKILL.md is the activation mechanism on every platform. Additionally, every skill ships a `.claude-plugin/` directory (`plugin.json` + `marketplace.json`) so Claude Code can install it natively via `/plugin marketplace add <repo-or-path>` + `/plugin install` — the SKILL.md at the skill root is discovered automatically (root-fallback; no `skills/` subdirectory needed). Other platforms ignore the directory.
+**Key rule:** SKILL.md is the activation mechanism on every platform. `skillctl` copies the skill to each tool's native skills path; do NOT add a `.claude/` directory inside a skill — it can shadow skill discovery.
 
 ### 2.2 Universal (Platform-Agnostic) Directory Layout
 
@@ -99,7 +96,7 @@ skill-name/
 └── requirements.txt
 ```
 
-Same Simple/Suite decision logic applies. Only the output file list changes — platform-specific directories, install scripts, and lifecycle maintenance scripts are omitted.
+Same Simple/Suite decision logic applies. Only the output file list changes — the evolution toolkit and lifecycle maintenance scripts are omitted.
 
 For universal complex suites, each component keeps only capability docs, executable logic, tests/evals, assets, and dependency declarations.
 
@@ -127,31 +124,20 @@ compatibility: >-           # optional, use when platform-specific features exis
 | `scripts/` | Executable Python code (functional, no placeholders) | Yes (if skill has code) |
 | `references/` | Detailed documentation, API guides, methodology docs | Recommended |
 | `assets/` | Configuration files, templates, schemas, static data | Optional |
-| `.claude-plugin/` | Plugin manifests for `/plugin marketplace add` install | Yes |
 | `evals/` | Eval spec (binary checks + golden cases + judge canary) | Yes (unless `--no-eval`) |
 | `scripts/evolve.py` | Shipped self-maintenance loop (staleness + rollout → `EVOLUTION.md`) | Yes |
-| `install.sh` | Cross-platform installer script | Yes |
 | `README.md` | Installation instructions for 5+ platforms | Yes |
-
-### 2.5 marketplace.json and SKILL.md: complementary, not competing
-
-- SKILL.md remains the universal discovery/activation mechanism across all 17 platforms — the `description` field alone activates the skill everywhere
-- `.claude-plugin/{plugin.json,marketplace.json}` is additive: it gives Claude Code users the native `/plugin marketplace add` + `/plugin install` path (in-tool install, updates, enable/disable). Other platforms simply ignore the directory
-- Because a generated skill has no `skills/` subdirectory, Claude Code discovers its root SKILL.md automatically (root-fallback); never add a `.claude/` directory inside a skill — it can shadow plugin skill discovery
-- Skills copied to `~/.claude/skills/` or `.claude/skills/` are still discovered without the manifests — the plugin path is an addition, not a requirement
 
 ---
 
 ## 3. Complex Suite Structure
 
-A Complex Suite bundles multiple related but independently usable skills under a single parent directory. It optionally includes a `marketplace.json` for Claude Code plugin registration.
+A Complex Suite bundles multiple related but independently usable skills under a single parent directory.
 
 ### 3.1 Standard Directory Layout
 
 ```
 suite-name/
-├── .claude-plugin/
-│   └── marketplace.json    # ONLY official fields (see below)
 ├── component-1/
 │   ├── SKILL.md            # Independent skill definition
 │   ├── scripts/
@@ -163,61 +149,10 @@ suite-name/
 ├── shared/                 # Shared utilities, data, config
 │   ├── utils.py
 │   └── config.json
-├── install.sh              # Installs all components
 └── README.md               # Suite-level documentation
 ```
 
-### 3.2 marketplace.json Schema (Official Fields Only)
-
-When a Complex Suite includes a `marketplace.json`, it must contain **only** the official Claude Code fields. No custom or non-standard fields are permitted.
-
-```json
-{
-  "name": "suite-name",
-  "plugins": [
-    {
-      "name": "component-1",
-      "description": "What component-1 does",
-      "source": "component-1/SKILL.md",
-      "skills": ["component-1"]
-    },
-    {
-      "name": "component-2",
-      "description": "What component-2 does",
-      "source": "component-2/SKILL.md",
-      "skills": ["component-2"]
-    }
-  ]
-}
-```
-
-**Allowed top-level fields:**
-- `name` (string): The suite name
-- `plugins` (array): List of plugin entries
-
-**Allowed fields per plugin entry:**
-- `name` (string): Component skill name
-- `description` (string): What the component does
-- `source` (string): Relative path to the component's SKILL.md
-- `skills` (array of strings): Skill identifiers
-
-**Forbidden fields** (non-standard, will cause validation failure):
-- `version` -- use `metadata.version` in SKILL.md instead
-- `author` -- use `metadata.author` in SKILL.md instead
-- `repository` -- not part of the official schema
-- `tags` -- not part of the official schema
-- Any other custom fields
-
-### 3.3 When to Use marketplace.json
-
-| Scenario | Include marketplace.json? |
-|----------|--------------------------|
-| Simple skill (1 SKILL.md) | No |
-| Complex suite for Claude Code distribution | Yes (optional) |
-| Complex suite targeting only non-Claude platforms | No |
-| Suite where components must be independently discoverable in Claude Code | Yes |
-
-### 3.4 Component Independence
+### 3.2 Component Independence
 
 Each component in a Complex Suite should be independently functional:
 
@@ -316,7 +251,6 @@ skill-name/
 │   └── guide.md          # API docs, methodology
 ├── assets/
 │   └── config.json       # Minimal configuration
-├── install.sh
 └── README.md
 ```
 
@@ -347,7 +281,6 @@ skill-name/
 │   └── methodology.md    # ~2000 words
 ├── assets/
 │   └── config.json
-├── install.sh
 └── README.md
 ```
 
@@ -390,7 +323,6 @@ skill-name/
 ├── assets/
 │   ├── config.json
 │   └── metadata.json
-├── install.sh
 └── README.md
 ```
 
@@ -727,7 +659,6 @@ Is total code > 3000 lines with 3+ unrelated workflows?
 - [ ] Shared resources extracted to `shared/` (not duplicated)
 - [ ] All SKILL.md files are <500 lines
 - [ ] All component names follow kebab-case naming
-- [ ] install.sh updated to handle new structure
 - [ ] README.md updated with new structure
 - [ ] Validation passes on all components
 
@@ -840,7 +771,7 @@ Each component must be independently functional. This means:
 - A component extracted from the suite and installed alone must still work
 - `shared/` utilities enhance performance (avoid duplicate API calls, consistent formatting) but are not hard requirements
 - If a component absolutely requires `shared/`, document this in its README.md
-- The suite-level install.sh must install `shared/` alongside all components
+- `skillctl install` copies the whole suite directory, so `shared/` travels with all components
 
 ---
 
@@ -938,9 +869,7 @@ Use this checklist before proceeding to implementation (Phase 5):
 - [ ] SKILL.md planned at <500 lines
 - [ ] Scripts have clear separation of concerns
 - [ ] References planned for detailed content
-- [ ] `install.sh` included
 - [ ] `README.md` planned with multi-platform install instructions
-- [ ] `.claude-plugin/plugin.json` + `marketplace.json` planned (official fields only, names match SKILL.md)
 - [ ] If suite: shared/ directory planned with import patterns documented
 - [ ] If suite: each component is independently functional
 

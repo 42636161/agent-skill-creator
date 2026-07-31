@@ -153,7 +153,6 @@ The human removes the cognitive constraint by providing the raw material. The fa
 ```
 skill-name/
 ├── SKILL.md          # Selection (Quick Profile) + execution (Workflow)
-├── .claude-plugin/   # plugin.json + marketplace.json (/plugin install path)
 ├── scripts/          # Functional code + run_pipeline.py (multi-script) + run_evals.py + evolve.py
 ├── references/       # Detailed documentation (loaded on demand)
 ├── assets/           # Templates, schemas, data files
@@ -289,12 +288,12 @@ Generate a complete report (includes clean + report):
 5. Write references (detailed documentation the skill loads on demand)
 6. Write assets (templates, configs)
 7. **Emit the eval spec** (skip if `--no-eval`): write `evals/<name>.eval.md` (the binary checks + golden cases derived in Phase 2, one marked `"split": "test"` as the holdout, plus a `judge` block with a pinned model and known-bad canary when any criterion is `llm-judge`) and copy `scripts/run_evals_template.py` → the generated skill's `scripts/run_evals.py`. See `references/phase2-eval-assessment.md`
-8. **Do not generate a per-skill `install.sh`.** Installation is unified through
+8. **Do not generate a per-skill installer.** Installation is unified through
    `skillctl install <name>` (GitHub index → clone → platform-aware copy). The
-   skill repo carries only `SKILL.md`, `AGENTS.md`, `scripts/`, `evals/`,
-   `contract.json`, and plugin manifests.
-8.5. Generate `.claude-plugin/plugin.json` + `marketplace.json` from `scripts/claude-plugin-template/` (placeholders from frontmatter — makes the skill installable via `/plugin marketplace add`), and **ship the evolution toolkit**: copy `scripts/evolve_template.py` → `scripts/evolve.py` plus the staleness/drift/dep-health modules. See `references/pipeline-phases.md` Steps 6.5–6.6
-9. Write `README.md` (multi-platform install instructions showing the `/plugin marketplace add` path for Claude Code and `git clone` to each tool's **native** path)
+   skill repo carries only `SKILL.md`, `AGENTS.md`, `scripts/`, `evals/`, and
+   `contract.json`.
+8.5. **Ship the evolution toolkit**: copy `scripts/evolve_template.py` → `scripts/evolve.py` plus the staleness/drift/dep-health modules. See `references/pipeline-phases.md` Step 6.5
+9. Write `README.md` (multi-platform install instructions via `skillctl`, with per-tool **native** paths as the manual fallback)
 10. Run **validation** against the official spec, **security scan** for hardcoded keys, instruction-body injection, and undeclared endpoints, **`python3 <skill>/scripts/check_pipeline.py <skill>`** (no compile or undeclared-dependency errors), and — if an eval spec was emitted — `python3 <skill>/scripts/run_evals.py --validate` (must report `VALID`)
 10.5. **Universal layout check (lint)**: If `--universal` mode, additionally run `python3 scripts/validate.py --check-universal <skill>`. Output is lint (non-blocking — continue on error). Require 0 errors before publish.
 11. **Auto-install on the current platform** (see below)
@@ -303,7 +302,7 @@ Generate a complete report (includes clean + report):
 When `--universal` is active, replace the default file list with the universal
 file list from `references/universal-standard.md` Section 1. Generate AGENTS.md
 following Section 2, SKILL.md following Section 3, eval spec following Section 5.
-Skip Step 8.5 (.claude-plugin/) and Step 11 (auto-install).
+Skip Step 8.5 (evolution toolkit) and Step 11 (auto-install).
 Use the simplified eval harness from Section 5 instead of `scripts/run_evals_template.py`.
 
 ### Auto-Install After Creation
@@ -311,8 +310,8 @@ Use the simplified eval harness from Section 5 instead of `scripts/run_evals_tem
 After the skill passes validation and security scan, install it immediately on
 the user's current platform with `skillctl install <name>` (or, when
 `skillctl` is unavailable, copy the skill directory directly into the
-detected platform's skills path). Do not ask the user to run a per-skill
-`install.sh` — you are already running inside their environment and can detect
+detected platform's skills path). Do not ask the user to run a separate
+installer — you are already running inside their environment and can detect
 their platform.
 
 **Detection logic** (check in order, install to each tool's **native** path):
@@ -386,15 +385,17 @@ Or specify your platform:
 Or install to all detected platforms at once:
 
   skillctl install sales-report-skill --all
-
-Alternative (if npx is available):
-
-  npx skills add ./sales-report-skill
 ```
 
-The `install.sh` inside the skill handles auto-detection, platform-specific paths, project vs user level, dry-run mode, and post-install activation instructions. It is the fallback for users who receive the skill as a package (not created in their current session).
+Installation is handled by `skillctl install <name>`: it auto-detects the
+platform, resolves the platform-specific skills path from the canonical
+registry, copies the skill, and prints post-install activation instructions.
+It is the fallback for users who receive the skill as a package (not created
+in their current session).
 
-The generated skill must be a self-contained package that anyone can install with `git clone` or `./install.sh` and invoke with `/skill-name` — the same way agent-skill-creator itself works.
+The generated skill must be a self-contained package that anyone can install
+with `git clone` + `skillctl install <name>` and invoke with `/skill-name` —
+the same way agent-skill-creator itself works.
 
 ### Share With Your Team (Post-Creation)
 
@@ -692,7 +693,6 @@ The SKILL.md body must start with `# /skill-name` so the agent recognizes the sl
 | Code size | <1000 lines | >2000 lines |
 | Maintenance | Single developer | Team |
 | Structure | Single SKILL.md | Multiple component SKILL.md files |
-| marketplace.json | Shipped by default (`.claude-plugin/`, Step 6.5) | Shipped by default (official fields only) |
 
 See `references/architecture-guide.md` for detailed decision framework.
 
@@ -714,27 +714,27 @@ platform-specific code or artifacts. Every platform accesses it the same way:
 
 | Platform | Native Global Path | Native Project Path | Command |
 |----------|-------------------|--------------------|---------|
-| Claude Code | `~/.claude/skills/` | `.claude/skills/` | `./install.sh` |
-| GitHub Copilot | `~/.copilot/skills/` | `.github/skills/` | `./install.sh --platform copilot` |
-| Codex CLI | `~/.agents/skills/` | `.agents/skills/` | `./install.sh --platform codex` |
-| Gemini CLI | `~/.gemini/skills/` | `.gemini/skills/` | `./install.sh --platform gemini` |
-| Kiro | `~/.kiro/skills/` | `.kiro/skills/` | `./install.sh --platform kiro` |
-| Goose | `~/.config/goose/skills/` | — | `./install.sh --platform goose` |
-| OpenCode | `~/.config/opencode/skills/` | `.opencode/skills/` | `./install.sh --platform opencode` |
-| Cline | `~/.cline/skills/` | `.clinerules/skills/` | `./install.sh --platform cline` |
-| Roo Code | `~/.roo/skills/` | `.roo/skills/` | `./install.sh --platform roo-code` |
-| Kilo Code | `~/.kilocode/skills/` | `.kilocode/skills/` | `./install.sh --platform kilo-code` |
-| Factory Droid | `~/.factory/skills/` | `.factory/skills/` | `./install.sh --platform factory` |
-| Antigravity | — | `.agent/skills/` | `./install.sh --platform antigravity` |
+| Claude Code | `~/.claude/skills/` | `.claude/skills/` | `skillctl install <name>` |
+| GitHub Copilot | `~/.copilot/skills/` | `.github/skills/` | `skillctl install <name> --platform copilot` |
+| Codex CLI | `~/.agents/skills/` | `.agents/skills/` | `skillctl install <name> --platform codex` |
+| Gemini CLI | `~/.gemini/skills/` | `.gemini/skills/` | `skillctl install <name> --platform gemini` |
+| Kiro | `~/.kiro/skills/` | `.kiro/skills/` | `skillctl install <name> --platform kiro` |
+| Goose | `~/.config/goose/skills/` | — | `skillctl install <name> --platform goose` |
+| OpenCode | `~/.config/opencode/skills/` | `.opencode/skills/` | `skillctl install <name> --platform opencode` |
+| Cline | `~/.cline/skills/` | `.clinerules/skills/` | `skillctl install <name> --platform cline` |
+| Roo Code | `~/.roo/skills/` | `.roo/skills/` | `skillctl install <name> --platform roo-code` |
+| Kilo Code | `~/.kilocode/skills/` | `.kilocode/skills/` | `skillctl install <name> --platform kilo-code` |
+| Factory Droid | `~/.factory/skills/` | `.factory/skills/` | `skillctl install <name> --platform factory` |
+| Antigravity | — | `.agent/skills/` | `skillctl install <name> --platform antigravity` |
 
 ### Tier 2 — Auto-adapted (installer converts SKILL.md to native format)
 
 | Platform | Native Format | Adaptation | Install Path | Command |
 |----------|--------------|------------|-------------|---------|
-| Cursor | `.mdc` | Generates `.mdc` with `alwaysApply`/`globs` frontmatter | `.cursor/skills/` (project only, no global) | `./install.sh --platform cursor` |
-| Windsurf | `.md` rules | Generates plain `.md` rule (6K char limit per file) | `.windsurf/rules/` (project) or `~/.codeium/windsurf/` (global) | `./install.sh --platform windsurf` |
-| Trae | `.md` rules | Generates plain `.md` with `type:` frontmatter | `.trae/rules/` | `./install.sh --platform trae` |
-| Junie | `guidelines.md` | Extracts body as plain markdown | `.junie/skills/` | `./install.sh --platform junie` |
+| Cursor | `.mdc` | Generates `.mdc` with `alwaysApply`/`globs` frontmatter | `.cursor/skills/` (project only, no global) | `skillctl install <name> --platform cursor` |
+| Windsurf | `.md` rules | Generates plain `.md` rule (6K char limit per file) | `.windsurf/rules/` (project) or `~/.codeium/windsurf/` (global) | `skillctl install <name> --platform windsurf` |
+| Trae | `.md` rules | Generates plain `.md` with `type:` frontmatter | `.trae/rules/` | `skillctl install <name> --platform trae` |
+| Junie | `guidelines.md` | Extracts body as plain markdown | `.junie/skills/` | `skillctl install <name> --platform junie` |
 
 ### Tier 3 — Manual integration
 
