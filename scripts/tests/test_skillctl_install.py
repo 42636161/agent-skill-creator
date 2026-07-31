@@ -1,7 +1,7 @@
 import unittest
 from unittest.mock import patch
 from pathlib import Path
-from scripts.skillctl.install import resolve_skill_entry, _detect_current_platform, resolve_install_dir
+from scripts.skillctl.install import resolve_skill_entry, _detect_current_platform, resolve_install_dir, _all_platform_dirs
 from scripts.skillctl.models import SkillEntry
 
 class TestResolveEntry(unittest.TestCase):
@@ -33,3 +33,16 @@ class TestResolveInstallDir(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestAllPlatformDirs(unittest.TestCase):
+    @patch("scripts.skillctl.install.user_paths")
+    def test_all_platform_dirs_expands_paths(self, mock_paths):
+        mock_paths.return_value = {
+            "codex": "~/.agents/skills",
+            "claude-code": "~/.claude/skills",
+        }
+        dirs = _all_platform_dirs()
+        self.assertEqual(len(dirs), 2)
+        self.assertEqual(dirs[0], Path("~/.agents/skills").expanduser().resolve())
+        self.assertEqual(dirs[1], Path("~/.claude/skills").expanduser().resolve())

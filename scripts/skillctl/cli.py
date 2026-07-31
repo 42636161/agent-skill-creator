@@ -17,6 +17,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_install.add_argument("target", help="技能名称（可含版本号，如 name@1.0.0）或自然语言描述")
     p_install.add_argument("--dir", help="安装到自定义目录")
     p_install.add_argument("--platform", help="目标平台名称")
+    p_install.add_argument("--all", action="store_true", help="安装到全部检测到的平台")
 
     p_info = sub.add_parser("info", help="查看技能详情")
     p_info.add_argument("name", help="技能名称")

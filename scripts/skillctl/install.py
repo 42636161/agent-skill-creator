@@ -45,8 +45,12 @@ def _detect_current_platform() -> str:
             return platform
     return "universal"
 
-def install_from_git(repo_url: str, version: str, target_dir: Path, skill_name: str) -> bool:
-    """从 Git 仓库克隆技能并调用安装脚本"""
+def install_from_git(repo_url: str, version: str, target_dirs: list[Path], skill_name: str) -> bool:
+    """从 Git 仓库克隆技能并复制到一个或多个目标目录。
+
+    所有平台统一走同一路径：GitHub 克隆 + Python 直接复制。
+    不再依赖技能仓库内的 install.sh / install-skill.sh。
+    """
     ensure_dirs()
     cache_path = CACHE_DIR / skill_name
     if cache_path.exists():
@@ -67,31 +71,25 @@ def install_from_git(repo_url: str, version: str, target_dir: Path, skill_name: 
             print(f"  克隆失败：{result.stderr.strip()}")
             return False
 
-    install_sh = cache_path / "scripts" / "install-skill.sh"
-    if not install_sh.exists():
-        install_sh = cache_path / "install.sh"
-    if not install_sh.exists():
-        return _copy_skill_directly(cache_path, target_dir, skill_name)
-
-    print(f"  执行安装：{install_sh}")
-    result = subprocess.run(
-        ["bash", str(install_sh), str(cache_path), "--target", str(target_dir)],
-        capture_output=True, text=True,
-    )
-    if result.returncode != 0:
-        print(f"  安装失败：{result.stderr.strip()}")
-        return False
-    print(result.stdout)
-    return True
+    ok = True
+    for target_dir in target_dirs:
+        if not _copy_skill_directly(cache_path, target_dir, skill_name):
+            ok = False
+    return ok
 
 def _copy_skill_directly(src: Path, target_dir: Path, skill_name: str) -> bool:
-    """回退方案：直接复制技能目录"""
+    """直接复制技能目录到目标平台路径"""
     target = target_dir / skill_name
     target.parent.mkdir(parents=True, exist_ok=True)
     if target.exists():
         shutil.rmtree(target)
     shutil.copytree(src, target)
     return True
+
+
+def _all_platform_dirs() -> list[Path]:
+    """返回全部平台用户级 skills 路径。"""
+    return [Path(p).expanduser().resolve() for p in user_paths().values()]
 
 def cmd_doctor(args: argparse.Namespace) -> int:
     """检查 CLI 和索引仓库健康状态"""
@@ -134,10 +132,17 @@ def cmd_install(args: argparse.Namespace) -> int:
             return 1
 
     target_version = version or entry.version
-    install_dir = resolve_install_dir(args.platform, args.dir)
+    if getattr(args, "all", False):
+        target_dirs = _all_platform_dirs()
+    else:
+        target_dirs = [resolve_install_dir(args.platform, args.dir)]
+    install_dir = target_dirs[0]
 
     print(f"\n  正在安装 {entry.display_name} v{target_version}")
-    print(f"  目标位置：   {install_dir}")
+    if len(target_dirs) > 1:
+        print(f"  目标平台：   {len(target_dirs)} 个平台")
+    else:
+        print(f"  目标位置：   {install_dir}")
     print(f"  认证状态：   {'✓ 已认证' if entry.verified else '⚠ 第三方技能'}")
     print()
 
@@ -147,11 +152,14 @@ def cmd_install(args: argparse.Namespace) -> int:
             print("  安装已取消。")
             return 1
 
-    install_dir.mkdir(parents=True, exist_ok=True)
-    success = install_from_git(entry.repo, target_version, install_dir, entry.name)
+    for d in target_dirs:
+        d.mkdir(parents=True, exist_ok=True)
+    success = install_from_git(entry.repo, target_version, target_dirs, entry.name)
     if success:
         record_installation(entry.name, target_version, entry.repo, args.platform or "auto")
-        print(f"\n  ✓ {entry.display_name} v{target_version} 已安装到 {install_dir}")
+        print(f"\n  ✓ {entry.display_name} v{target_version} 已安装到 {len(target_dirs)} 个位置")
+        for d in target_dirs:
+            print(f"    {d}")
         print(f"  执行 'python3 scripts/skillctl/__main__.py update {entry.name}' 检查更新。")
     else:
         print(f"\n  ✗ {entry.display_name} 安装失败")

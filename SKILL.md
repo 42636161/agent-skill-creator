@@ -142,7 +142,7 @@ Implement the skill end-to-end from your specification. Structure the directory.
 Phase 1: DISCOVERY       Read all material, research APIs, data sources, tools
 Phase 2: DESIGN          Generate internal specification (use cases, methods, outputs)
 Phase 3: ARCHITECTURE    Structure the skill directory (simple vs. complex suite)
-Phase 4: DETECTION       Craft activation description + keywords for reliable triggering
+Phase 4: DETECTION       Generate structured description + Quick Profile section
 Phase 5: IMPLEMENTATION  Create all files, validate, security scan, deliver
 ```
 
@@ -152,14 +152,12 @@ The human removes the cognitive constraint by providing the raw material. The fa
 
 ```
 skill-name/
-├── SKILL.md          # Starts with "# /skill-name" — the invocation trigger (~15 tools)
-├── AGENTS.md         # Companion instruction file — AAIF format (~15 tools)
+├── SKILL.md          # Selection (Quick Profile) + execution (Workflow)
 ├── .claude-plugin/   # plugin.json + marketplace.json (/plugin install path)
 ├── scripts/          # Functional code + run_pipeline.py (multi-script) + run_evals.py + evolve.py
 ├── references/       # Detailed documentation (loaded on demand)
 ├── assets/           # Templates, schemas, data files
 ├── evals/            # Bundled eval spec: binary checks + golden cases (+ judge canary)
-├── install.sh        # Cross-platform auto-detect installer
 └── README.md         # Multi-platform installation instructions
 ```
 
@@ -267,9 +265,7 @@ See `references/architecture-guide.md` for decision logic and directory structur
 
 ### Phase 4: Detection
 
-Generate a description (<=1024 chars) with domain keywords for agent discovery. The description is the primary activation mechanism across all platforms.
-
-See `references/pipeline-phases.md` for detailed Phase 4 instructions.
+Generate a structured description and Quick Profile for the skill (see `references/description-guide.md` for the format and `references/phase4-detection.md` for the generation process).
 
 ### Phase 5: Implementation
 
@@ -293,7 +289,10 @@ Generate a complete report (includes clean + report):
 5. Write references (detailed documentation the skill loads on demand)
 6. Write assets (templates, configs)
 7. **Emit the eval spec** (skip if `--no-eval`): write `evals/<name>.eval.md` (the binary checks + golden cases derived in Phase 2, one marked `"split": "test"` as the holdout, plus a `judge` block with a pinned model and known-bad canary when any criterion is `llm-judge`) and copy `scripts/run_evals_template.py` → the generated skill's `scripts/run_evals.py`. See `references/phase2-eval-assessment.md`
-8. Generate `install.sh` from `scripts/install-template.sh` (replace `{{SKILL_NAME}}` with actual name, `chmod +x`)
+8. **Do not generate a per-skill `install.sh`.** Installation is unified through
+   `skillctl install <name>` (GitHub index → clone → platform-aware copy). The
+   skill repo carries only `SKILL.md`, `AGENTS.md`, `scripts/`, `evals/`,
+   `contract.json`, and plugin manifests.
 8.5. Generate `.claude-plugin/plugin.json` + `marketplace.json` from `scripts/claude-plugin-template/` (placeholders from frontmatter — makes the skill installable via `/plugin marketplace add`), and **ship the evolution toolkit**: copy `scripts/evolve_template.py` → `scripts/evolve.py` plus the staleness/drift/dep-health modules. See `references/pipeline-phases.md` Steps 6.5–6.6
 9. Write `README.md` (multi-platform install instructions showing the `/plugin marketplace add` path for Claude Code and `git clone` to each tool's **native** path)
 10. Run **validation** against the official spec, **security scan** for hardcoded keys, instruction-body injection, and undeclared endpoints, **`python3 <skill>/scripts/check_pipeline.py <skill>`** (no compile or undeclared-dependency errors), and — if an eval spec was emitted — `python3 <skill>/scripts/run_evals.py --validate` (must report `VALID`)
@@ -304,12 +303,17 @@ Generate a complete report (includes clean + report):
 When `--universal` is active, replace the default file list with the universal
 file list from `references/universal-standard.md` Section 1. Generate AGENTS.md
 following Section 2, SKILL.md following Section 3, eval spec following Section 5.
-Skip Step 8 (install.sh), Step 8.5 (.claude-plugin/), and Step 11 (auto-install).
+Skip Step 8.5 (.claude-plugin/) and Step 11 (auto-install).
 Use the simplified eval harness from Section 5 instead of `scripts/run_evals_template.py`.
 
 ### Auto-Install After Creation
 
-After the skill passes validation and security scan, install it immediately on the user's current platform. Do not ask the user to run `install.sh` manually — you are already running inside their environment and can detect their platform.
+After the skill passes validation and security scan, install it immediately on
+the user's current platform with `skillctl install <name>` (or, when
+`skillctl` is unavailable, copy the skill directory directly into the
+detected platform's skills path). Do not ask the user to run a per-skill
+`install.sh` — you are already running inside their environment and can detect
+their platform.
 
 **Detection logic** (check in order, install to each tool's **native** path):
 
@@ -371,17 +375,17 @@ The skill is installed at: ~/.claude/skills/sales-report-skill
 If you cannot detect the platform, show the user how to run the install manually:
 
 ```
-I couldn't auto-detect your platform. To install, run:
+I couldn't auto-detect your platform. To install via the unified CLI:
 
-  ./sales-report-skill/install.sh
+  skillctl install sales-report-skill
 
 Or specify your platform:
 
-  ./sales-report-skill/install.sh --platform cursor
+  skillctl install sales-report-skill --platform cursor
 
 Or install to all detected platforms at once:
 
-  ./sales-report-skill/install.sh --all
+  skillctl install sales-report-skill --all
 
 Alternative (if npx is available):
 
@@ -868,6 +872,7 @@ The `-skill` suffix also serves as a signal to the agent: when it sees a repo or
 | `references/mcp-audit.md` | `--mcp-audit` front door: vendor MCP server → capability map, ranked buildable skills, not-buildable list with named gaps |
 | `references/pipeline-phases.md` | Detailed Phase 1-5 instructions |
 | `references/architecture-guide.md` | Simple vs Suite decision, refactoring, cross-component communication, versioning |
+| `references/description-guide.md` | Quick Profile template, category taxonomy, description generation spec |
 | `references/templates-guide.md` | Template-based creation |
 | `references/interactive-mode.md` | Interactive wizard docs |
 | `references/multi-agent-guide.md` | Suite creation, orchestration patterns, routing logic |
