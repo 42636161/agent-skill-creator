@@ -1,6 +1,7 @@
 """Tests for scripts.validate — agent constraints + contract checks."""
 
 import json
+import re
 import sys
 import tempfile
 import unittest
@@ -10,6 +11,7 @@ ROOT = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(ROOT / "scripts"))
 
 from validate import check_agent_constraints, check_contract  # noqa: E402
+from validate import validate_skill  # noqa: E402
 
 
 class TestAgentConstraints(unittest.TestCase):
@@ -451,3 +453,64 @@ class TestStaticAnalysis(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+class TestDescriptionFormat(unittest.TestCase):
+    """Tests for _validate_description_format()."""
+
+    def setUp(self):
+        self.tmp = Path(tempfile.mkdtemp())
+
+    def _make_skill(self, description: str) -> Path:
+        skill_dir = self.tmp / "desc-test-skill"
+        skill_dir.mkdir()
+        (skill_dir / "README.md").write_text("# test\n")
+        (skill_dir / "SKILL.md").write_text(
+            "---\n"
+            f"name: desc-test-skill\ndescription: >-\n  {description}\n"
+            "license: MIT\nmetadata:\n  author: test\n  version: 1.0.0\n"
+            "activation: /desc-test-skill\n"
+            "---\n"
+            "# /desc-test-skill\n\n"
+            "## Quick Profile\n\n"
+            "**Category**: transformer\n"
+            "**Input**: text\n"
+            "**Output**: text\n"
+            "**When to use**: testing, validation\n"
+            "**When not**: production\n",
+            encoding="utf-8",
+        )
+        return skill_dir
+
+    def _desc_error_in(self, description: str) -> bool:
+        result = validate_skill(str(self._make_skill(description)))
+        return any(
+            "description must start with" in e for e in result.get("errors", [])
+        )
+
+    def test_a_prefix_passes(self):
+        """Descriptions starting with 'A ' should pass."""
+        self.assertFalse(
+            self._desc_error_in("A cleaning pipeline for CRM data management."),
+            "Valid 'A ...' description rejected",
+        )
+
+    def test_an_prefix_passes(self):
+        """Descriptions starting with 'An ' should pass."""
+        self.assertFalse(
+            self._desc_error_in("An analyzer of stock price data for traders."),
+            "Valid 'An ...' description rejected",
+        )
+
+    def test_no_prefix_fails(self):
+        """Descriptions NOT starting with 'A ' or 'An ' should fail."""
+        self.assertTrue(
+            self._desc_error_in("Cleaning pipeline without article."),
+            "Description without A/An should have been rejected",
+        )
+
+    def test_wrong_prefix_fails(self):
+        """Descriptions starting with 'The ' should fail."""
+        self.assertTrue(
+            self._desc_error_in("The analyzer of stocks and trends."),
+            "Description with 'The' should have been rejected",
+        )

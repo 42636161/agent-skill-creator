@@ -275,6 +275,25 @@ def validate_skill(skill_path: str) -> dict:
                     f"Referenced file does not exist: '{link_path}'"
                 )
 
+        # --- Quick Profile validation ---
+        _validate_quick_profile(skill_dir, errors, warnings)
+
+        # --- Description format validation ---
+        _validate_description_format(doc, errors)
+
+        # --- Check for per-skill AGENTS.md ---
+        ag = skill_dir / "AGENTS.md"
+        if ag.exists():
+            warnings.append(
+                "per-skill AGENTS.md found — selection info should be in SKILL.md Quick Profile"
+            )
+
+        # --- README.md presence check ---
+        readme = skill_dir / "README.md"
+        if not readme.exists():
+            warnings.append("README.md not found — installation instructions are required")
+
+
     return {
         "valid": len(errors) == 0,
         "errors": errors,
@@ -337,6 +356,70 @@ def _print_human_readable(result: dict, skill_path: str) -> None:
 
     print(f"{'=' * 60}")
 
+
+
+def _validate_quick_profile(skill_dir: Path, errors: list, warnings: list) -> None:
+    """Validate Quick Profile section in SKILL.md body."""
+    skill_md = skill_dir / "SKILL.md"
+    if not skill_md.exists():
+        return
+
+    text = skill_md.read_text(encoding="utf-8")
+
+    if "## Quick Profile" not in text:
+        errors.append("SKILL.md missing ## Quick Profile section")
+        return
+
+    profile_match = re.search(
+        r"## Quick Profile\s*\n(.*?)(?=\n## |\Z)", text, re.DOTALL
+    )
+    if not profile_match:
+        errors.append("Could not parse Quick Profile section")
+        return
+
+    profile_text = profile_match.group(1)
+
+    for pattern, msg in [
+        (r"\*\*Category\*\*", "Missing **Category** in Quick Profile"),
+        (r"\*\*Input\*\*", "Missing **Input** in Quick Profile"),
+        (r"\*\*Output\*\*", "Missing **Output** in Quick Profile"),
+    ]:
+        if not re.search(pattern, profile_text):
+            errors.append(msg)
+
+    when_match = re.search(r"\*\*When to use\*\*\s*:\s*(.+)", profile_text)
+    if when_match:
+        items = [x.strip() for x in when_match.group(1).split(",") if x.strip()]
+        if len(items) < 2:
+            warnings.append("Quick Profile When to use should have >= 2 items")
+    else:
+        errors.append("Missing **When to use** in Quick Profile")
+
+    when_not_match = re.search(r"\*\*When not\*\*\s*:\s*(.+)", profile_text)
+    if when_not_match:
+        items = [x.strip() for x in when_not_match.group(1).split(",") if x.strip()]
+        if len(items) < 1:
+            warnings.append("Quick Profile When not should have >= 1 items")
+    else:
+        errors.append("Missing **When not** in Quick Profile")
+
+
+
+def _validate_description_format(doc, errors: list) -> None:
+    """Validate description starts with A/An + noun."""
+    desc = doc.description
+    if desc is None:
+        return
+    desc = desc.strip()
+    if not re.match(r"^(A|An)\s+", desc):
+        errors.append(
+            "description must start with 'A {category}' or 'An {category}'" +             " (found: '" + desc[:40] + "...')"
+        )
+    word_count = len(desc.split())
+    if word_count > 80:
+        errors.append(
+            f"description is {word_count} words (target: 40-60, max: 80)"
+        )
 
 def main() -> None:
     """CLI entry point for the spec compliance validator."""
