@@ -1,3 +1,29 @@
+## v0.6.0 — 提示词工程优化（2026-07-31）
+
+### 变更
+
+- **token 效率** — SKILL.md Phase 描述收为索引 + CoT 前置检查；Reference Files 表
+  加第三列「When to read」和条件触发；pipeline-phases.md 三个长域示例改为通用决策表；
+  quality-standards.md 加 pipeline-phases checklist 引用；architecture-guide.md
+  §3+ 加条件分隔线和阅读引导。
+- **命中率** — 每个 Phase 前加 CoT 前置检查（`Before Phase N: verify...`）；
+  SKILL.md body 模板加「Do NOT」负例段；Phase 5 加 self-check 步骤。
+- **失败处理** — Phase 5 加 fix-only 重试指令和 validate.py 结构化错误解读。
+- **幻觉减少** — Output Example 强制从真实 pipeline 运行复制；Agent Constraints 模板
+  加固定反编造条款（`Must NOT fabricate or guess data`）。
+
+### 变动文件
+
+```
+SKILL.md                              — 改写：Phase 摘要 + CoT 前置 + fix-only 重试 + 条件引用表
+references/pipeline-phases.md         — 改写：决策表 + 负例 + Output 来源 + 反编造条款
+references/quality-standards.md       — 改写：pipeline-phases 引用提示
+references/architecture-guide.md      — 改写：阅读引导 + 条件分隔线
+VERSION.md                            — 新增：本次版本记录
+```
+
+---
+
 ## v0.5.0 — creator 规范收敛（2026-07-31）
 
 ### 变更

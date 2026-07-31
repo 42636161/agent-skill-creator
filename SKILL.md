@@ -139,11 +139,25 @@ This specification is for you, not the user. The quality of the skill depends en
 Implement the skill end-to-end from your specification. Structure the directory. Write every file. Generate functional code — no placeholders, no TODOs, no stubs. Then run automated validation and security scanning. If either fails, fix the issues and re-run. Do not deliver a skill that fails its own quality gates.
 
 ```
-Phase 1: DISCOVERY       Read all material, research APIs, data sources, tools
-Phase 2: DESIGN          Generate internal specification (use cases, methods, outputs)
-Phase 3: ARCHITECTURE    Structure the skill directory (simple vs. complex suite)
-Phase 4: DETECTION       Generate structured description + Quick Profile section
-Phase 5: IMPLEMENTATION  Create all files, validate, security scan, deliver
+Phase 1: DISCOVERY       Research APIs, data sources, tools → internal research notes.
+                         Before starting: verify user material is fully read.
+                         See pipeline-phases.md §Phase 1 for full procedure.
+Phase 2: DESIGN          Use cases, analyses, eval criteria → internal spec.
+                         Before starting: verify Phase 1 research is complete.
+                         See pipeline-phases.md §Phase 2.
+Phase 3: ARCHITECTURE    Simple skill vs complex suite decision → directory structure.
+                         Before starting: verify Phase 2 use cases are defined.
+                         See architecture-guide.md §1-2 then pipeline-phases.md §Phase 3.
+Phase 4: DETECTION       Description, keywords, Quick Profile → SKILL.md frontmatter.
+                         Before starting: verify Phase 2+3 decisions are finalized.
+                         See description-guide.md then pipeline-phases.md §Phase 4.
+Phase 5: IMPLEMENTATION  Create all files, validate, security scan, deliver.
+                         Before validate.py: self-check every MUST item in
+                         pipeline-phases.md Phase 5 Checklist.
+                         If validate/check_pipeline fail: read ONLY the reported
+                         errors, fix ONLY the affected files, re-run. Do NOT
+                         restart the pipeline. After 3 repeated failures: stop
+                         and report to user with full error output.
 ```
 
 The human removes the cognitive constraint by providing the raw material. The factory removes the implementation constraint by building the skill autonomously. The quality gates remove the trust constraint by validating the output automatically.
@@ -204,11 +218,15 @@ held-out human spot-check.
 
 ### Phase 1: Discovery
 
+Before starting: verify the user's raw material (text, URLs, files) has been fully read. If anything is unclear, re-read the material before researching.
+
 Research available APIs and data sources for the user's domain. Compare options by cost, rate limits, data quality, and documentation. **Decide** which API to use with justification.
 
 See `references/pipeline-phases.md` for detailed Phase 1 instructions.
 
 ### Phase 2: Design
+
+Before starting: verify Phase 1 Discovery findings are complete — APIs documented, data sources named, domain entities listed. Phase 2 analyses must reference these findings.
 
 Define 4-6 priority analyses covering 80% of use cases. For each: name, objective, inputs, outputs, methodology. Always include a comprehensive report function.
 
@@ -253,6 +271,8 @@ Mark the normal case as `"split": "train"` and boundary cases as
 
 ### Phase 3: Architecture
 
+Before starting: verify Phase 2 Design has produced a complete specification with use cases. Phase 3 decisions (simple vs complex, directory structure) must reference these use cases. Do not introduce new use cases here.
+
 Structure the skill using the Agent Skills Open Standard:
 
 - **Simple Skill**: Single SKILL.md + scripts + references + assets
@@ -264,9 +284,18 @@ See `references/architecture-guide.md` for decision logic and directory structur
 
 ### Phase 4: Detection
 
+Before starting: verify Phase 2 use cases and Phase 3 architecture are finalized. The description must be derived from these, not invented.
+
 Generate a structured description and Quick Profile for the skill (see `references/description-guide.md` for the format and `references/phase4-detection.md` for the generation process).
 
 ### Phase 5: Implementation
+
+Self-check before running validate.py: go through every MUST item in pipeline-phases.md Phase 5 Checklist.
+If validate.py or check_pipeline.py return errors: read ONLY the [ERROR] lines, fix ONLY the files named, re-run.
+Do NOT restart the pipeline from Phase 1. If the same error repeats 3 times, stop and report to the user with the full error output.
+
+validate.py output: [ERROR] = blocking (must fix). [WARN] = advisory (fix recommended).
+Status at bottom: VALID or INVALID.
 
 Create all files in this order:
 
@@ -866,20 +895,21 @@ The `-skill` suffix also serves as a signal to the agent: when it sees a repo or
 
 ## Reference Files
 
-| File | Contents |
-|------|----------|
-| `references/spec-ideation.md` | Phase 0 front door: turn vague input / "give me a skill idea" into a grounded, skill-shaped spec |
-| `references/mcp-audit.md` | `--mcp-audit` front door: vendor MCP server → capability map, ranked buildable skills, not-buildable list with named gaps |
-| `references/pipeline-phases.md` | Detailed Phase 1-5 instructions |
-| `references/architecture-guide.md` | Simple vs Suite decision, refactoring, cross-component communication, versioning |
-| `references/description-guide.md` | Quick Profile template, category taxonomy, description generation spec |
-| `references/templates-guide.md` | Template-based creation |
-| `references/interactive-mode.md` | Interactive wizard docs |
-| `references/multi-agent-guide.md` | Suite creation, orchestration patterns, routing logic |
-| `references/agentdb-integration.md` | Future learning-layer design sketch (not implemented) |
-| `references/cross-platform-guide.md` | Platform compatibility matrix |
-| `references/export-guide.md` | Cross-platform export system |
-| `references/quality-standards.md` | Quality standards, dependency management, testing strategy |
-| `references/phase4-detection.md` | Detection & keyword-design craft reference |
-| `references/phase2-eval-assessment.md` | Phase 2 eval-criteria step, golden-case strategy, spec format, autoresearch handoff |
-| `references/phase5-orchestration.md` | Phase 5 pipeline orchestration: single run_pipeline.py entry-point, deterministic sequencing, check_pipeline.py |
+| File | Contents | When to read |
+|------|----------|-------------|
+| `references/pipeline-phases.md` | Detailed Phase 1-5 implementation instructions, checklists, templates | Always — in every generation session |
+| `references/quality-standards.md` | Code quality patterns, testing strategy, dependency management | Always — in every generation session |
+| `references/architecture-guide.md` | §1-2: Decision framework + simple skill structure. §3+: Sizing patterns, refactoring, suites | §1-2 always. §3+ only when skill is complex (3+ workflows) or a refactoring |
+| `references/description-guide.md` | Quick Profile template, category taxonomy | During Phase 4 detection |
+| `references/phase4-detection.md` | Detection process & keyword design | During Phase 4 detection |
+| `references/phase2-eval-assessment.md` | Eval spec design, golden-case strategy, boundary templates | During Phase 2 design |
+| `references/phase5-orchestration.md` | Pipeline orchestration pattern | During Phase 5 implementation |
+| `references/spec-ideation.md` | Phase 0: turn vague input into a buildable spec | Only when input is too vague to start Phase 1 |
+| `references/mcp-audit.md` | MCP server → capability map | Only when --mcp-audit is used |
+| `references/cross-platform-guide.md` | Platform compatibility matrix | Only when skill targets Tier 2/3 platforms |
+| `references/universal-standard.md` | Universal skill output standard | Only when --universal is active |
+| `references/export-guide.md` | Export for Desktop/Web/API | Only when exporting skill |
+| `references/multi-agent-guide.md` | Suite creation, orchestration | Only when skill requires 3+ independent components |
+| `references/interactive-mode.md` | Interactive wizard | Only in interactive (wizard) mode |
+| `references/templates-guide.md` | Template-based creation | Only when using templates |
+| `references/agentdb-integration.md` | Future design sketch | Skip — not implemented |

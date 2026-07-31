@@ -574,6 +574,11 @@ Ask questions about agriculture and the agent will respond.
 
 ## Quality Checklist
 
+(The full Phase 5 checklist is in pipeline-phases.md Phase 5 Checklist. The
+checklist items below are retained for historical reference only; code-level
+templates are defined in scripts/pipeline_template.py and should NOT be
+duplicated here.)
+
 ### Per Python Script
 
 - [ ] Shebang: `#!/usr/bin/env python3`

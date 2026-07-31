@@ -1,6 +1,12 @@
 # Architecture Decision Guide
 
 **Version:** 6.0
+**Reading guide:** §§1-2 (decision framework + simple skill structure) are
+needed for every skill generation. §§3+ (sizing, performance, refactoring,
+suites, versioning) are on-demand — only read when the skill is complex
+(3+ distinct workflows), a refactoring, or a suite. SKILL.md tells you when
+to come back for §§3+.
+
 **Purpose:** Comprehensive guide for choosing the right architecture when creating agent skills, including directory structures, naming conventions, sizing patterns, and performance strategies.
 
 ---
@@ -233,8 +239,9 @@ def validate_skill_name(name: str) -> tuple[bool, list[str]]:
 ```
 
 ---
-
 ## 5. Directory Sizing Patterns
+
+<!-- Everything below is on-demand. Only read if SKILL.md or Phase 3 tells you to. -->
 
 Choose a sizing pattern based on the skill's complexity. These patterns apply to both Simple Skills and individual components within a Complex Suite.
 

@@ -81,53 +81,19 @@ From user input, extract the main domain:
 | "economic indicators" | Economy / Macro |
 | "commodity data" | Trading / Commodities |
 
-### Step 2: Search Available APIs
+### Decision Matrix (replaces domain-specific examples)
 
-For the identified domain, use WebSearch to find public APIs:
+Use this table to guide API selection for any domain. Do NOT write per-domain
+narrative examples — the matrix covers all cases.
 
-**Search queries:**
-```
-"[domain] API free public data"
-"[domain] government API documentation"
-"best API for [domain] historical data"
-"[domain] open data sources"
-```
-
-**Example (US agriculture):**
-```bash
-WebSearch: "US agriculture API free historical data"
-WebSearch: "USDA API documentation"
-WebSearch: "agricultural statistics API United States"
-```
-
-**Typical result:** 5-10 candidate APIs.
-
-### Step 3: Research Documentation
-
-For each candidate API, use WebFetch to load:
-- Homepage/overview
-- Getting started guide
-- API reference
-- Rate limits and pricing
-
-**Extract information per API:**
-
-```markdown
-## API: [Name]
-
-**URL**: [base URL]
-**Docs**: [docs URL]
-
-**Authentication**:
-- Type: API key / OAuth / None
-- Cost: Free / Paid
-- How to obtain: [steps]
-
-**Available Data**:
-- Temporal coverage: [from when to when]
-- Geographic coverage: [countries, regions]
-- Metrics: [list]
-- Granularity: [daily, monthly, annual]
+| Signal | Decision |
+|---|---|
+| User mentions a specific API or service | Use it. Research endpoints, auth, rate limits. |
+| User mentions a data format (CSV, SQLite, JSON, XLSX) | Use stdlib or the most lightweight parser for that format. |
+| User describes a periodic workflow (weekly, monthly) | Default to a report-generator pipeline with date-bounded queries. |
+| User mentions multiple data sources | Start with the richest schema; enrich from others. |
+| No API or format mentioned | Ask user to clarify before researching. |
+| Task involves visualization or charting | Use matplotlib (static) or generate data for React chart components. |
 
 **Limitations**:
 - Rate limit: [requests per day/hour]
@@ -278,88 +244,11 @@ After deciding, dive deep into documentation via WebFetch:
 
 Save everything in `references/api-guide.md` of the skill to be created.
 
-## Discovery Examples
+## Phase 1 Quick Reference
 
-### Example 1: US Agriculture
-
-**Input**: "US crop data"
-
-**Research**:
-```
-WebSearch: "USDA API agricultural data"
-→ Found: NASS QuickStats, ERS, FAS
-
-WebFetch: https://quickstats.nass.usda.gov/api
-→ Free, data since 1866, 1000/day rate limit
-
-WebFetch: https://www.ers.usda.gov/developer/
-→ Free, economic focus, less granular
-
-WebFetch: https://apps.fas.usda.gov/api
-→ International focus, not domestic
-```
-
-**Comparison**:
-| API | Coverage (US domestic) | Cost | Production Data | Score |
-|-----|---------------------------|-------|-------------------|-------|
-| NASS | ⭐⭐⭐⭐⭐ (excellent) | Free | ⭐⭐⭐⭐⭐ | 9.5/10 |
-| ERS | ⭐⭐⭐⭐ (good) | Free | ⭐⭐⭐ (economic) | 7.0/10 |
-| FAS | ⭐⭐ (international) | Free | ⭐⭐ (global) | 4.0/10 |
-
-**DECISION**: NASS QuickStats API
-- Best coverage for US domestic agriculture
-- Free with reasonable rate limit
-- Complete production, area, yield data
-
-### Example 2: Stock Market
-
-**Input**: "technical stock analysis"
-
-**Research**:
-```
-WebSearch: "stock market API free historical data"
-→ Alpha Vantage, Yahoo Finance, IEX Cloud, Polygon.io
-
-WebFetch: Alpha Vantage docs
-→ Free, 5 requests/min, 500/day
-
-WebFetch: Yahoo Finance (yfinance)
-→ Free, unlimited but unofficial
-
-WebFetch: IEX Cloud
-→ Freemium, good docs, 50k free credits/month
-```
-
-**Comparison**:
-| API | Data | Cost | Rate Limit | Official | Score |
-|-----|-------|-------|------------|---------|-------|
-| Alpha Vantage | Complete | Free | 500/day | ⭐⭐⭐ | 8.0/10 |
-| Yahoo Finance | Complete | Free | Unlimited | ❌ Unofficial | 7.5/10 |
-| IEX Cloud | Excellent | Freemium | 50k/month | ⭐⭐⭐⭐ | 8.5/10 |
-
-**DECISION**: IEX Cloud (free tier)
-- Official and reliable
-- 50k requests/month sufficient
-- Excellent documentation
-- Complete data (OHLCV + volume)
-
-### Example 3: Global Climate
-
-**Input**: "global climate data"
-
-**Research**:
-```
-WebSearch: "weather API historical data global"
-→ NOAA, OpenWeather, Weather.gov, Meteostat
-
-[Research each one...]
-```
-
-**DECISION**: NOAA Climate Data Online (CDO) API
-- Official (US government)
-- Free
-- Global and historical coverage (1900+)
-- Rate limit: 1000/day
+The three domain examples (US agriculture, stock market, global climate) have
+been replaced by the decision matrix above. All three would arrive at the same
+conclusions via the matrix — no additional examples are needed.
 
 ## Phase 1 Checklist
 
@@ -1036,6 +925,24 @@ single `references/guide.md`. Do NOT generate multiple reference files. Use
 inline detail in SKILL.md body whenever possible — only outsource when
 prose would bloat past the 500-line cap.
 
+### Negative Section
+
+Include this `## Do NOT` section at the end of every generated SKILL.md body:
+
+```markdown
+## Do NOT
+
+- Do NOT include a file tree or directory listing — agents can derive it.
+- Do NOT hand-write the Output Example; copy it from an actual pipeline run.
+- Do NOT generate bash/ps1 wrapper scripts at the skill root.
+- Do NOT generate multiple reference files; merge into single references/guide.md.
+- Do NOT ship EVOLUTION.md in the initial delivery.
+```
+
+**Output Example enforcement:** The Output Example must be copied from a real
+pipeline run — do not hand-write or guess field values. If no real run is
+available yet, mark the section as `<!-- To be filled after first pipeline run -->`.
+
 ### Step 2.5: Write AGENTS.md (Dispatch Card with Agent Constraints)
 
 Generate an AGENTS.md alongside SKILL.md. Keep it ≤25 lines — a dispatch card,
@@ -1057,13 +964,15 @@ configuration, and limits.
 
 ## Agent Constraints
 
-1. Must NOT <constraint from Phase 2 business rules>
-2. Must <constraint from Phase 2 use cases>
-3. Must NOT <constraint from Phase 2 or Phase 4>
+1. Must NOT fabricate or guess data. If a metric is not computable from the pipeline output, return null or "Unknown" — never a plausible value.
+2. Must NOT <constraint from Phase 2 business rules>
+3. Must <constraint from Phase 2 use cases>
+4. Must NOT <constraint from Phase 2 or Phase 4>
 ```
 
 Derive constraints from Phase 2 discussions. Each must be verifiable.
 Agent Constraints live only in AGENTS.md; SKILL.md does NOT duplicate them.
+Constraint #1 is fixed — never remove it; derive #2-4 per skill.
 
 ### Step 3: Implement Python Scripts
 
