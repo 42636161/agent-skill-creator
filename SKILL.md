@@ -271,7 +271,7 @@ Generate a structured description and Quick Profile for the skill (see `referenc
 Create all files in this order:
 
 1. Create directory structure
-2. Write **SKILL.md** — starts with `# /skill-name`, includes a `## How to run it` section showing the simplified `--report` invocation, spec-compliant frontmatter
+2. Write **SKILL.md** — starts with `# /skill-name`, spec-compliant frontmatter. Must include `## How to run it` (single `--report` command) and `## Runtime Contract` (states that scripts/ are implementation details — do NOT read them during normal operation; only open source code when debugging, extending, or changing business rules)
 3. Write **AGENTS.md** — companion instruction file for maximum cross-tool reach (~15 tools read AGENTS.md). Contains skill purpose, activation triggers, usage instructions, and a reference to SKILL.md for full details. Follows the AAIF-governed AGENTS.md format. **Append a `## Agent Constraints` section** derived from Phase 2 discussions (see `references/pipeline-phases.md` Step 2.5 for the template and derivation rules).
 4. Implement Python scripts (functional, no placeholders, no TODOs). Use `scripts/pipeline_template.py` as the template for `scripts/pipeline.py`. The generated pipeline must include a dependency graph (`STEPS` dict), a `resolve_steps()` function for topological ordering, and a `--report` flag as the primary entry point (auto-resolves all prerequisite steps). Keep `--clean` for backward compat but mark it deprecated in help text. **For a multi-script pipeline**, the generated `scripts/pipeline.py` also wires each step's output into the next step's input **in code** — so the agent runs one command instead of sequencing steps from prose. Skip for genuinely interactive/branching skills. In the generated SKILL.md, add a `## How to run it` section:
 
@@ -681,7 +681,7 @@ User invokes `/skill-name` followed by their input:
 ## [Rest of skill body — workflow, instructions, references]
 ```
 
-The SKILL.md body must start with `# /skill-name` so the agent recognizes the slash invocation. The body must be <500 lines. Move detailed content to `references/`.
+The SKILL.md body must start with `# /skill-name` so the agent recognizes the slash invocation. The body must be <500 lines. If detailed content would exceed 500 lines, merge it into a single `references/guide.md` — do not generate multiple reference files.
 
 **Critical**: Every skill the factory produces must be invocable with `/skill-name` on any platform. The generated skill is software that gets installed and used — not a document to read.
 

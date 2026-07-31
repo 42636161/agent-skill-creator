@@ -1031,10 +1031,10 @@ metadata:
 [Concrete output JSON or CSV snippet]
 ```
 
-**Keeping under 500 lines:** Move detailed content to `references/`:
-- Detailed API docs go to `references/api-guide.md`
-- Detailed methodologies go to `references/analysis-methods.md`
-- Troubleshooting goes to `references/troubleshooting.md`
+**Keeping under 500 lines:** If content exceeds 500 lines, move overflow into a
+single `references/guide.md`. Do NOT generate multiple reference files. Use
+inline detail in SKILL.md body whenever possible — only outsource when
+prose would bloat past the 500-line cap.
 
 ### Step 2.5: Write AGENTS.md (Dispatch Card with Agent Constraints)
 
