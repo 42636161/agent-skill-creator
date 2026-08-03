@@ -6,6 +6,8 @@
 **Subject:** 从多个维度评估生成的技能，汇总发现的所有改进需求。
          本文档只记录问题与改进方向；具体实施方案写在对应的实现计划中。
 
+**最新验证（2026-08-03）：** 以 12 个零售技能为样本对照本标准逐项评估。维度 B 中 B-2（分发耦合）和 B-4（维护设施捆绑）已通过 universal output mode + skillctl 解决。维度 A 中 AGENTS.md 的削减是刻意的（减少 agent 阅读长度），触发词已迁至 SKILL.md frontmatter metadata。主要遗留问题：多语言触发词覆盖不均（英文技术术语 vs 中文零售口语）、工具与技能的设计边界仍模糊（B-1），以及同类技能之间 Runtime Contract 的完整度差异大。
+
 ---
 
 ## 评价维度与改进方向
@@ -20,9 +22,13 @@ agent 是技能的"运行环境"——它读 SKILL.md 和 AGENTS.md，决定是�
 
 ##### A-a-1. 激活触发词覆盖不足
 
-**问题.** 当前触发词（"clean this CRM export"、"weekly sales report"）代表的是技能作者对技能的理解，不是用户的真实说法。用户会说"帮我看看这个表格"、"这周的数帮我整一下"、"I exported this from Salesforce"——这些表达不包含"CRM"或"report"关键词。agent 拿到这些输入时，无法判定是否应该激活技能。
+**问题.** 当前设计中触发词已从 AGENTS.md 迁至 SKILL.md frontmatter metadata 的结构化字段（`description` 中的 "Triggers on" 和独立的 `activation` 字段），格式更利于 agent 解析。AGENTS.md 的削减是刻意的，目的是减少 agent 阅读长度——运行时指令已在  和 SKILL.md 的 Runtime Contract 中覆盖。但触发内容存在两个真实缺口：
 
-**改进需求.** 触发词需覆盖用户真实的模糊表达（用户不知道这是"CRM 报告"）、半信息态（用户给了文件但没说清楚要什么）、以及多语言中常见的非术语说法。
+(1) **多语言场景下的术语偏差。** 许多技能的目标用户是中国零售场景，但触发词以英文技术术语为主。例如 member-rfm-segmenter-skill 列出 "RFM, customer segmentation, member analysis, loyalty analysis"，中国零售用户会说"帮我把会员分个层"而不会说"run an RFM analysis"。
+
+(2) **缺乏用户的日常口语表达。** 即使用户语言匹配，当前触发词仍偏向技能功能描述（"competitor price monitoring"）而非用户真实的模糊请求（"竞品降价了帮我看看影响多大"）。
+
+**改进需求.** 触发词生成应从目标用户的语言习惯出发：覆盖对应的本地语言口语表达，覆盖用户描述问题而非描述功能的说话方式。
 
 ##### A-a-2. 错误路径缺少诊断信息
 
@@ -135,3 +141,4 @@ _后续评价维度将在此处扩展。_
 | 2026-07-29 | 初稿：维度 A 从 agent 和用户两个子视角展开 | syh |
 | 2026-07-29 | 新增维度 B：设计与架构分层（4 项） | syh |
 | 2026-07-30 | 更新 B-2、B-4：反映 universal mode + skillctl 的分发变更 | syh |
+| 2026-08-03 | 校准 A-a-1：触发词已迁至 SKILL.md metadata，实际问题为多语言覆盖不均。新增验证上下文 | syh |
