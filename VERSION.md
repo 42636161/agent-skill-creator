@@ -1,3 +1,66 @@
+
+## Planned / Backlog
+
+以下项目来源于 2026-07-29 用户质量评估文档，在 12 个零售技能验证中确认为长期改进方向。
+按优先级排序：
+
+### B-1: 工具与技能的设计边界
+- 工厂管线需区分"生成工具"和"生成技能"两种模式。
+- 技能模式产出领域知识 + 判断规则 + 对话模式，而非仅 CLI 手册。
+- 评估参考：docs/superpowers/specs/2026-07-29-user-quality-evaluation-design.md
+
+### A-b-3: 预览确认模式（--dry-run）
+- 流水线需支持先预览变更计划再执行。
+
+### A-b-4: 历史对比（--compare）
+- 支持传入基线报告，产出对比维度（delta, delta_pct）。
+
+### A-b-5: 输入格式自动检测
+- 入口处自动检测 XLSX/CSV/TSV 并转换，减少用户格式焦虑。
+
+### A-b-6: 功能发现提示
+- Agent 回答末尾应主动提及一项相关但未请求的能力。
+
+### A-a-3: 激活透明度
+- 技能激活时 Agent 应声明"正在运行 xxx-skill"。
+
+### B-3: 领域逻辑与领域数据分离
+- 列名别名、清洗阈值等知识应以数据文件存在，可独立审查和扩展。
+
+## v0.7.1 — Phase 5 代码质量模板（2026-08-03）
+
+### 变更
+
+- **Validate-Compute-Report 模式** — Phase 5 新增三函数模板（validate_input / compute / generate_report）。
+  validate 负责 I/O + 校验（缺列立即 exit，不静默 fallback），compute 是纯函数（无 I/O、无副作用、
+  显式排序 key、阈值边界校验、分类前完成阈值计算），generate_report 负责格式化输出。
+  来源：12 skill agent 评价发现 6/12 有静默数据错误（缺列 fallback 到 0、排序无 key、阈值 off-by-one）。
+- **错误消息三段式** — 所有用户可见错误遵循「什么错了 → 期望什么 → 怎么修」格式。禁止裸 traceback。
+  来源：3/12 skill 的错误输出是 Python 堆栈追踪。
+- **输入 Schema 文档** — Phase 5 Checklist 强制 SKILL.md Input 段列出所有必需列名。
+  来源：2/12 skill 列名硬编码无文档，用户不知道期望格式。
+- **Phase 5 Checklist 新增 5 项**：sort/max/min 显式 key、pipeline 输出含计算值非静态文本、
+  必需列文档化、BOM/空行自动处理、validate-compute-report 模式。
+- **Skill 校准示例去测试化** — pipeline-phases.md Phase 3 中 4 个引用测试 skill 的示例替换为
+  通用域示例（ETL pipeline、DevOps suite、Content system、Weather dashboard）。零售公式表替换为
+  通用分析方法模板。Phase 4 中文域示例替换为通用多语言规则。
+
+### 验证
+
+- 12 skill agent 评价报告（`tests/retail_skills/results/reports/eval_*.md`）发现的全部 P0 问题
+  已追溯至根因并映射到本版本模板修改。报告汇总：`results/reports/creator_feedback_report.md`。
+- Creator 提示文件无测试 skill 特定引用（grep verified clean）。
+
+### 变动文件
+
+```
+references/pipeline-phases.md         — 改写：Phase 5 模板 +69 行，Phase 3/4 去测试化
+tests/retail_skills/results/reports/  — 新增：12 skill agent 评价报告 + creator 反馈报告
+VERSION.md                            — 新增：本次版本记录
+```
+
+---
+
 ## v0.7.0 — 提示词去重与质量收敛（2026-08-03）
 
 ### 变更
