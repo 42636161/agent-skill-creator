@@ -1,3 +1,50 @@
+## v0.7.0 — 提示词去重与质量收敛（2026-08-03）
+
+### 变更
+
+- **P0 核心文件去重** — SKILL.md（915 → 207, -77%）、pipeline-phases.md（1544 → 216, -86%）、
+  quality-standards.md（1177 → 47, -96%）。三文件总量从 4543 行降至 1377 行（-70%）。
+  删除原则：Phase 1-5 详细 prose 收敛到 pipeline-phases.md、代码块引用 pipeline_template.py
+  而非复制、17 平台兼容表保留在 cross-platform-guide.md 按需加载、Checklist 统一由
+  pipeline-phases.md 承载。
+- **SKILL.md 重构** — 保留原创内容（Clarity Principles、Input hierarchy、Hypothesis pattern、
+  Progressive refinement、Fail forward），删除与 reference 文件重复的 Phase 详细描述、
+  17 平台表、Export/Templates/Suites/Interactive 章节。新增 Pipeline 索引段 + CoT 前置检查 +
+  Phase guard 规则。Reference Files 表改为条件加载（When to read → Load only when）。
+- **pipeline-phases.md 重构** — 仅保留 Phase 1-5 的 checklist、决策表（Decision Matrix +
+  API 路由）、模板（Analysis Spec、Directory Structure、File Creation Order）、
+  harness contract。新增零售域公式 compact 表（动销率、促销 ROI、RFM、四象限）。
+  新增 Phase 5 Output Quality Rules（report 以摘要开头、stdout 人读、Runtime Contract）。
+  新增 Phase 5 File Hygiene Checklist（禁 bash wrapper、禁 EVOLUTION.md 交付）。
+- **Phase 4 模板补全** — 强制生成 activation 和 provenance 字段，
+  消除 validate.py 的 2 个 persistent warning。
+- **Phase 1 guard** — Decision Matrix 增加文件输入显式规则："File-only input → skip API
+  search, use local parser, mark as no-api-needed"。中文 API 平台列表（京东/淘宝开放平台）。
+- **Phase 3 反例** — 排班/对账等单管道任务即使有多步骤也保持 simple，不拆 suite。
+- **Phase 2 公式表** — 零售域分析公式以 compact 表替代长示例（动销率、lift/cannibalization/ROI、
+  RFM quantile、四象限 median 阈值）。
+- **AGENTS.md 政策统一** — pipeline-phases.md Phase 5 明确 AGENTS.md ≤25 行 dispatch card。
+
+### 验证
+
+- 零售 skill 测试套件 12 个 case 全量评分：修复前 10A/2B → 修复后 12A。
+- P0 修剪后重生成 A1/C7/E12：全部保持 A（6/6），质量无损。
+- P2 评分脚本误报修复：B4 baseline 检测改进（pre/during 成对模式）、
+  E11 硬编码提成检测改进（零值初始化豁免）。
+
+### 变动文件
+
+```
+SKILL.md                              — 改写：去重、索引、CoT 前置、Phase guard
+references/pipeline-phases.md         — 改写：去重、零售公式表、输出质量规则、文件卫生
+references/quality-standards.md       — 改写：去重、引用 pipeline_template.py
+tests/retail_skills/score_skill.py    — 修改：反模式扫描 B4/E11 误报修复
+tests/retail_skills/results/          — 新增：creator 缺陷归因报告、UX 评分表、12 skill 全量评分
+VERSION.md                            — 新增：本次版本记录
+```
+
+---
+
 ## v0.6.0 — 提示词工程优化（2026-07-31）
 
 ### 变更

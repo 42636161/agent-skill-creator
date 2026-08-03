@@ -1,1544 +1,208 @@
-# Pipeline Phases: Complete 5-Phase Skill Creation Reference
+# Pipeline Phases — Detailed Reference
 
-**Version:** 6.0
-**Purpose:** Consolidated reference for the autonomous 5-phase skill creation pipeline used by agent-skill-creator v6.0.
-
-This document contains the detailed instructions for each phase of skill creation, following the Agent Skills Open Standard (SKILL.md-first, `-skill` suffix on generated names, spec-compliant frontmatter, cross-platform support).
-
----
-
-## Pipeline Overview
-
-```
-Phase 1: DISCOVERY       -> Research APIs, data sources, domain mapping
-Phase 2: DESIGN          -> Define use cases, analyses, methodologies
-Phase 3: ARCHITECTURE    -> Structure skill directory (standard-compliant)
-Phase 4: DETECTION       -> Generate description + keywords for activation
-Phase 5: IMPLEMENTATION  -> Create all files, validate, security scan
-```
-
-**Key v6.0 principles:**
-
-- SKILL.md is the **primary file**, created first in Phase 5
-- Generated names use **kebab-case** and **must end with `-skill`**
-- Name: 1-64 chars, lowercase letters, numbers, hyphens; must match directory
-- Description: 1-1024 chars; this IS the activation mechanism
-- Generated SKILL.md must be **<500 lines** (move detail to `references/`)
-- Frontmatter must include: `name`, `description`, `license`, `metadata` (author, version)
-- No per-skill installer — installation uses `skillctl install <name>`
-- Validation and security scan run at the end of Phase 5
+**Loaded: always.** This file contains the step-by-step instructions, decision tables,
+templates, and checklists for each pipeline phase. SKILL.md has the phase overview and CoT checks.
+Read this file phase by phase — do NOT load all 5 phases at once. Load the current phase only.
 
 ---
 
-# Phase 1: Discovery
+## Phase 1: Discovery
 
-## Objective
-
-Research and **DECIDE** autonomously which API or data source to use for the skill being created.
-
-## Detailed Process
-
-### Step 0: Input Triage
-
-Before identifying the domain, classify what the user actually provided:
-
-| Input Type | Strategy |
-|---|---|
-| Well-formed description | Proceed to Step 1 normally |
-| Files only (Excel, PDF, code, CSV) | Reverse-engineer: open each file, reconstruct the workflow from structure. Tab names, column headers, formulas, and formatting ARE the specification |
-| URLs only | Fetch each URL. Understand the data source. Infer what the user would do with this data based on their role/context |
-| Screenshot/image | Read visually. Identify: what tool is shown? What data? What manual step is visible? What's the pain? |
-| Email/forwarded chain | Extract: who asked for what, what was agreed, what's the actual request (ignore disclaimers, scheduling, CC lists) |
-| Single word or phrase | Infer from context: user's desk/role, existing skills in their environment, databases available. Present the most likely interpretation and confirm |
-| Mixed (files + sentence) | The files are the spec. The sentence is commentary. Cross-reference both |
-| "here" + files | The files ARE the input. Process them all. Present your understanding. |
-| Pasted reference material (guidelines, policies, wiki pages, style guides) | This IS the knowledge to codify. Read it all. Identify what it governs (writing, design, compliance, process). The user wants an active skill that enforces these rules, not a summary |
-
-**After triage, ALWAYS present your understanding before proceeding:**
-
-"From your [files/URLs/screenshot], I understand you [reconstructed workflow].
-The output goes to [inferred recipient]. [Specific question if needed]. Right?"
-
-The user confirms with one word. Then proceed to Step 1.
-
-**Discovery check (before building):**
-Before designing a new skill, verify:
-- Is this data already in a database the user has access to?
-- Has a colleague already built a skill for this?
-- Is there a simpler solution (existing API, existing tool, existing infrastructure)?
-
-The best outcome is sometimes: "You don't need a new skill — this data already exists in [database]. Let me show you how to query it."
-
-### Step 1: Identify Domain
-
-From user input, extract the main domain:
-
-| User Input | Identified Domain |
-|---|---|
-| "US crop data" | Agriculture (US) |
-| "stock market analysis" | Finance / Stock Market |
-| "global climate data" | Climate / Meteorology |
-| "economic indicators" | Economy / Macro |
-| "commodity data" | Trading / Commodities |
-
-### Decision Matrix (replaces domain-specific examples)
-
-Use this table to guide API selection for any domain. Do NOT write per-domain
-narrative examples — the matrix covers all cases.
+### Decision Matrix
 
 | Signal | Decision |
 |---|---|
+| File-only input (.xlsx, .csv, .sqlite) | Skip API search. Use local parser: openpyxl (Excel), csv, sqlite3. Mark as no-api-needed. |
 | User mentions a specific API or service | Use it. Research endpoints, auth, rate limits. |
 | User mentions a data format (CSV, SQLite, JSON, XLSX) | Use stdlib or the most lightweight parser for that format. |
 | User describes a periodic workflow (weekly, monthly) | Default to a report-generator pipeline with date-bounded queries. |
-| User mentions multiple data sources | Start with the richest schema; enrich from others. |
 | No API or format mentioned | Ask user to clarify before researching. |
-| Task involves visualization or charting | Use matplotlib (static) or generate data for React chart components. |
+| Chinese e-commerce context (京东, 天猫, 淘宝) | Target: JD Open Platform, Taobao Open Platform. Auth: OAuth 2.0 with AppKey+AppSecret. |
 
-**Limitations**:
-- Rate limit: [requests per day/hour]
-- Max records: [per request]
+### Phase 1 Checklist
 
-**Quality**:
-- Source: [official government / private]
-- Reliability: [high/medium/low]
-- Update frequency: [frequency]
-- Documentation quality: [excellent/good/poor]
-
-**Ease of Use**:
-- Format: JSON / CSV / XML
-- SDKs: [Python/R/None]
-- Quirks: [any non-obvious behavior]
-```
-
-### Step 4: API Capability Inventory
-
-Ensure the skill uses the maximum useful surface of the chosen API.
-
-**Step 4.1: Complete Inventory**
-
-For the chosen API, catalog ALL data types:
-
-```markdown
-## Complete Inventory - {API Name}
-
-| Endpoint/Metric | Returns | Granularity | Coverage | Value |
-|---|---|---|---|---|
-| {metric1} | {description} | {daily/weekly} | {geo} | High |
-| {metric2} | {description} | {monthly} | {geo} | High |
-| {metric3} | {description} | {annual} | {geo} | Medium |
-```
-
-**Step 4.2: Coverage Decision**
-
-- If metric has high value: implement in v1.0
-- If API has 5 high-value metrics: implement all 5
-- Never leave >50% of API unused without strong justification
-
-**Step 4.3: Document Decision**
-
-In `DECISIONS.md`:
-
-```markdown
-## API Coverage Decision
-
-API {name} offers {N} types of metrics.
-
-**Implemented in v1.0 ({X} of {N}):**
-- {metric1} - {justification}
-- {metric2} - {justification}
-
-**Not implemented ({Y} of {N}):**
-- {metricZ} - {why not} (planned for v2.0)
-
-**Coverage:** {X/N * 100}%
-```
-
-**Output of this step:** Exact list of all `get_*()` methods to implement.
-
-### Step 5: Compare Options
-
-Create comparison table:
-
-| API | Coverage | Cost | Rate Limit | Quality | Docs | Ease | Score |
-|---|---|---|---|---|---|---|---|
-| API 1 | 5/5 | Free | 1000/day | Official | 4/5 | 5/5 | 9.2/10 |
-| API 2 | 4/5 | $49/mo | Unlimited | Private | 5/5 | 4/5 | 7.8/10 |
-
-**Scoring criteria:**
-- Coverage (fit with need): 30% weight
-- Cost (prefer free): 20% weight
-- Rate limit (sufficient?): 15% weight
-- Quality (official > private): 15% weight
-- Documentation (facilitates implementation): 10% weight
-- Ease of use (format, structure): 10% weight
-
-### Step 6: DECIDE
-
-**Consider user constraints:**
-- Mentioned "free"? Eliminate paid options
-- Mentioned "10+ years historical data"? Check coverage
-- Mentioned "real-time"? Prioritize streaming APIs
-
-**Apply logic:**
-1. Eliminate APIs that violate constraints
-2. Of remaining, choose highest score
-3. If tie, prefer: official > private, better docs, easier to use
-
-**Document the final decision:**
-
-```markdown
-## Selected API: [API Name]
-
-**Score**: X.X/10
-
-**Justification**:
-- Coverage: [specific details]
-- Cost: [free/paid + details]
-- Rate limit: [number] requests/day
-- Quality: [official/private + reliability]
-- Documentation: [quality + examples]
-
-**Alternatives Considered**:
-- API X: Score 7.5/10 - Rejected because [reason]
-- API Y: Score 6.2/10 - Rejected because [reason]
-```
-
-### Step 7: Research Technical Details
-
-After deciding, dive deep into documentation via WebFetch:
-- Getting started guide
-- Complete API reference
-- Authentication guide
-- Rate limiting details
-- Best practices
-
-**Extract for implementation:**
-
-```markdown
-## Technical Details - [API]
-
-### Authentication
-- Method: API key in header
-- Header: `X-Api-Key: YOUR_KEY`
-- Obtaining key: [step-by-step]
-
-### Main Endpoints
-- URL, parameters, response format, errors
-
-### Rate Limiting
-- Limit, response headers, behavior when exceeded
-
-### Quirks and Gotchas
-- Data formatting issues (e.g., values as strings with commas)
-- Suppressed data markers
-- Any non-obvious behavior
-
-### Performance Tips
-- What to cache and for how long
-- Pagination
-- Parallel requests
-```
-
-### Step 8: Document for Later Use
-
-Save everything in `references/api-guide.md` of the skill to be created.
-
-## Phase 1 Quick Reference
-
-The three domain examples (US agriculture, stock market, global climate) have
-been replaced by the decision matrix above. All three would arrive at the same
-conclusions via the matrix — no additional examples are needed.
-
-## Phase 1 Checklist
-
-- [ ] Research completed (WebSearch + WebFetch)
-- [ ] Minimum 3 APIs compared
-- [ ] Decision made with clear justification
-- [ ] User constraints respected
-- [ ] API capability inventory completed
-- [ ] Technical details extracted
+- [ ] Input triaged (file-only → no API search)
+- [ ] If API needed: minimum 3 options compared
+- [ ] Decision made with justification
+- [ ] API coverage decision: what endpoints are used, what are deferred
+- [ ] Technical details documented (auth, rate limits, quirks)
 - [ ] DECISIONS.md content prepared
-- [ ] Ready for analysis design
 
 ---
 
-# Phase 2: Design
+## Phase 2: Design
 
-## Objective
+### Use Case Development
 
-**DEFINE** autonomously which analyses the skill will perform and how.
+1. List 15-20 typical questions the user would ask
+2. Group by analysis type (Simple Queries, Temporal Comparisons, Rankings, Trends, etc.)
+3. Prioritize: implement top 4-6 that cover 80% of use cases
+4. Always include a **comprehensive report function**
 
-## Additional Steps
-
-- **(new in v6.0)** Artifact Opportunity Assessment — call
-  `artifact_detector.detect_artifact(description, domain)`. If a template
-  is returned, inline it into the SKILL.md body along with emission
-  instructions. See `phase2-artifact-assessment.md`.
-- **(new)** Eval Criteria Definition — derive 3–6 binary checks (each graded
-  by a shell `command` or flagged `llm-judge`) plus ≥3 golden cases that define
-  the skill's loss function. Written to `evals/<name>.eval.md` in Phase 5; on by
-  default, `--no-eval` opts out. See `phase2-eval-assessment.md`.
-
-**Universal mode:** do not create `llm-judge` criteria. All criteria must be
-`type: command`. No `judge` block in the eval spec. For skill-class outputs,
-at least one golden case must exercise domain judgment, not just structural
-correctness.
-
-## Detailed Process
-
-### Step 1: Brainstorm Use Cases
-
-From the workflow described by the user, think of typical questions they will ask.
-
-**Technique:** "If I were this user, what would I ask?"
-
-**Example (US agriculture):**
-
-User said: "download crop data, compare year vs year, make rankings"
-
-Typical questions:
-1. "What's the corn production in 2023?"
-2. "How's soybean compared to last year?"
-3. "Did production grow or fall?"
-4. "Does growth come from area or productivity?"
-5. "Which states produce most wheat?"
-6. "Top 5 soybean producers"
-7. "Production trend last 5 years?"
-8. "Average US yield"
-9. "Compare Midwest vs South"
-10. "Production by region"
-
-**Goal:** List 15-20 typical questions.
-
-### Step 2: Group by Analysis Type
-
-Group similar questions:
-
-**Group 1: Simple Queries** (fetching + formatting)
-- Required analysis: **Data Retrieval**
-- Complexity: Low
-
-**Group 2: Temporal Comparisons** (YoY)
-- Required analysis: **YoY Comparison + Decomposition**
-- Complexity: Medium
-
-**Group 3: Rankings** (sorting + share)
-- Required analysis: **State/Entity Ranking**
-- Complexity: Medium
-
-**Group 4: Trends** (time series)
-- Required analysis: **Trend Analysis**
-- Complexity: Medium-High
-
-**Group 5: Projections** (forecasting)
-- Required analysis: **Forecasting**
-- Complexity: High
-
-**Group 6: Geographic Aggregations**
-- Required analysis: **Regional Aggregation**
-- Complexity: Medium
-
-### Step 3: Prioritize Analyses
-
-**Prioritization criteria:**
-1. **Frequency of use** (based on described workflow)
-2. **Analytical value** (insight vs effort)
-3. **Implementation complexity** (easier first)
-4. **Dependencies** (does one analysis depend on another?)
-
-Score each analysis on these criteria and implement the top 4-6 that cover 80% of use cases. Always include a **comprehensive report function** that combines multiple analyses into a single summary.
-
-### Step 4: Specify Each Analysis
-
-For each selected analysis, document:
+### Analysis Specification Template
 
 ```markdown
 ## Analysis: [Name]
 
-**Objective**: [What it does in 1 sentence]
-**When to use**: [Types of questions that trigger it]
-
-**Required inputs**:
-- Input 1: [type, description]
-- Input 2: [type, description]
-
-**Expected outputs**:
-- Output 1: [type, description]
-
-**Methodology**: [Explanation in natural language]
-
-**Formulas**:
-- Formula 1 = ...
-
-**Validations**:
-- Validation 1: [criteria]
-
-**Interpretation**:
-- If result > X: [interpretation]
-- If result < Y: [interpretation]
-
-**Concrete example**:
-- Input: [specific values]
-- Processing: [step by step calculation]
-- Output: [JSON with result]
-- Response to user: [formatted answer]
+**Objective**: [1 sentence]
+**Required inputs**: [type, description]
+**Expected outputs**: [type, description]
+**Methodology**: [explanation in natural language]
+**Formulas**: Formula = ...
+**Validations**: [criteria]
+**Interpretation**: If result > X: [interpretation]; If < Y: [interpretation]
+**Concrete example**: Input → Processing → Output
 ```
 
-### Step 5: Specify Methodologies
+### Retail Domain Formula Reference (compact)
 
-For quantitative analyses, detail methodology with formulas.
+| Analysis | Formula | Edge cases |
+|---|---|---|
+| Sell-through rate (动销率) | sold / ((begin + end) / 2) | begin≤0 or end<0 → flag as data error |
+| Promo lift | (promo_sales - baseline) / baseline | baseline=0 → skip, flag |
+| Cannibalization | max(0, baseline - post_promo) / promo_sales | promo_sales=0 → skip |
+| Promo ROI | (incremental_profit - marketing_cost) / marketing_cost | marketing_cost=0 → skip, flag |
+| RFM scoring | Quantile-based (configurable bins) or fixed thresholds | Single-transaction members → handle gracefully |
+| Four-quadrant | Margin × Turnover matrix with median thresholds | Seasonal products → score only in active season |
 
-**Example: YoY Decomposition**
+### Eval Criteria Rules
 
-```
-Production = Area x Yield
+- 3-6 binary checks: each graded by shell `command` or flagged `llm-judge`
+- At least 3 golden cases: seeded from user artifacts when available
+- **Every golden case must include one boundary edge**: zero value, negative value, missing field, or extreme value
+- Mark normal case as `split: "train"` and boundary cases as `split: "test"`
+- `--no-eval` flag skips eval generation entirely
 
-Change_Production ~ Change_Area x Yield(t-1) + Area(t-1) x Change_Yield
-
-Contrib_Area = (Change_Area% / Change_Production%) x 100
-Contrib_Yield = (Change_Yield% / Change_Production%) x 100
-```
-
-**Interpretation:**
-- Contrib_Area > 60%: Extensive growth (area expansion is main driver)
-- Contrib_Yield > 60%: Intensive growth (technology improvement is main driver)
-- Both ~50%: Balanced growth
-
-**Validation:**
-- Production(t) approximately equals Area(t) x Yield(t) (margin 1%)
-- Contrib_Area + Contrib_Yield approximately equals 100% (margin 5%)
-
-### Step 6: Comprehensive Report Function
-
-Always design a comprehensive report function that:
-- Combines data from multiple analyses
-- Provides an executive summary
-- Includes key metrics, comparisons, and trends
-- Is the single most useful output of the skill
-
-### Step 7: Document Analyses
-
-Save all specifications in `references/analysis-methods.md` of the skill.
-
-## Phase 2 Checklist
+### Phase 2 Checklist
 
 - [ ] 15+ typical questions listed
-- [ ] Questions grouped by analysis type
-- [ ] 4-6 analyses prioritized (with scoring)
-- [ ] Each analysis specified (objective, inputs, outputs, methodology)
-- [ ] Methodologies detailed with formulas
-- [ ] Validations defined
-- [ ] Interpretations specified
-- [ ] Concrete examples included
+- [ ] 4-6 analyses defined with complete specification (objective, inputs, outputs, methodology)
+- [ ] Formulas detailed with validations and interpretations
 - [ ] Comprehensive report function designed
+- [ ] Eval criteria defined (3-6 binary + ≥3 golden cases with boundaries)
+- [ ] Retail formulas verified against compact formula table above
 
 ---
 
-# Phase 3: Architecture
+## Phase 3: Architecture
 
-## Objective
+### Workflow Definition (READ FIRST)
 
-**STRUCTURE** the skill using the Agent Skills Open Standard: directory layout, files, responsibilities, cache, performance.
+A **workflow** is one independently callable execution path that produces a complete, useful result.
+**One litmus test**: if the user runs only this component, do they get an actionable output?
 
-## Detailed Process
+| Answer | Classification | Example |
+|---|---|---|
+| Yes — the output alone drives a decision | = 1 workflow | Sales report → manager decides on staffing |
+| No — the output is an intermediate artifact only meaningful when combined | = 1 step (not a workflow) | "Aggregate sales by hour" → useless without the shift generator |
 
-### Step 1: Define Skill Name
+**Examples (to calibrate judgment):**
 
-**Format:** `{domain}-{objective}-skill` — kebab-case per the Agent Skills Open Standard.
+| Scenario | Workflows? | Architecture |
+|---|---|---|
+| Monthly ops: sales rate, inventory health, staff efficiency, cost control | 4 → **suite** | Manager can review any single dimension and act |
+| Daily store report: read Excel → aggregate sales → compute returns → generate summary | 1 → **simple** | Intermediate aggregations are not independently useful |
+| Shift scheduler: read traffic → allocate by peak → output schedule | 1 → **simple** | Traffic analysis alone is not a schedule |
+| ERP-POS reconciliation: match records → flag discrepancies → produce audit report | 1 → **simple** | Matching alone without the discrepancy report is not actionable |
+| Financial suite: stock analysis, portfolio tracking, tax reporting | 3 → **suite** | Each domain produces a complete report independently |
 
-**Rules:**
-- 1-64 characters
-- Lowercase letters, numbers, and hyphens only
-- Must not start or end with hyphen
-- Must not contain consecutive hyphens
-- Must match parent directory name
-- **Must end with `-skill`**
+**Anti-pattern**: Counting processing steps as workflows. "This skill has 5 steps → must be a suite" is wrong.
+A pipeline with 10 steps that produces one useful output = 1 workflow = simple skill.
 
-**Examples:**
-- `stock-analyzer-skill`
-- `csv-data-cleaner-skill`
-- `weekly-report-generator-skill`
-- `nass-agriculture-monitor-skill`
-- `noaa-climate-analysis-skill`
-
-### Step 2: Directory Structure
-
-All skills follow the Agent Skills Open Standard structure:
-
-**Simple Skill (1-2 workflows, <1000 lines):**
-
-```
-skill-name/
-├── SKILL.md              # Primary file, <500 lines
-├── scripts/
-│   └── main.py
-├── references/
-│   └── guide.md
-├── assets/
-│   └── config.json
-└── README.md             # Multi-platform install instructions (via skillctl)
-```
-
-**Organized Skill (3-5 scripts, medium complexity):**
-
-```
-skill-name/
-├── SKILL.md
-├── scripts/
-│   ├── fetch.py
-│   ├── parse.py
-│   ├── analyze.py
-│   └── utils/
-│       ├── cache.py
-│       └── validators.py
-├── references/
-│   ├── api-guide.md
-│   └── analysis-methods.md
-├── assets/
-│   └── config.json
-└── README.md
-```
-
-**Complex Skill (6+ scripts, large scope):**
-
-```
-skill-name/
-├── SKILL.md
-├── scripts/
-│   ├── core/
-│   │   ├── fetch_source.py
-│   │   ├── parse_source.py
-│   │   └── analyze_source.py
-│   ├── models/
-│   │   └── forecasting.py
-│   └── utils/
-│       ├── cache_manager.py
-│       ├── rate_limiter.py
-│       └── validators.py
-├── references/
-│   ├── api-guide.md
-│   ├── analysis-methods.md
-│   └── troubleshooting.md
-├── assets/
-│   ├── config.json
-│   └── metadata.json
-└── README.md
-```
-
-**Important:** The SKILL.md file with its frontmatter is what activates the skill on all platforms. Installation is handled by `skillctl install <name>`, which copies the skill to the platform's native path from the canonical registry. Do NOT add a `.claude/` directory inside a skill — it can shadow skill discovery.
-
-**Universal mode:** see `references/universal-standard.md` Section 1 for the
-universal directory layout. All platform-specific directories and files are
-omitted.
-
-### Step 3: Simple vs Complex Suite Decision
+### Decision Framework
 
 | Factor | Simple Skill | Complex Suite |
-|---|---|---|
+|--------|-------------|---------------|
 | Workflows | 1-2 | 3+ distinct |
 | Code size | <1000 lines | >2000 lines |
 | Maintenance | Single developer | Team |
 | Structure | Single SKILL.md | Multiple component SKILL.md files |
 
-**Default:** Start with simple skill. Upgrade to complex suite only when warranted.
+### Directory Structure — Agent Skills Open Standard## Phase 4: Detection
 
-### Step 4: Define Script Responsibilities
+### Description Design
 
-**Principle:** Separation of Concerns.
+- 1-1024 chars. MUST start with "A {category}" or "An {category}".
+- Include activation keywords in the description and in trigger examples.
+- For Chinese domains: include both Chinese (动销率, 门店日报) and English keywords.
+- For single-word input: the description should cover all expanded dimensions from Phase 0.
 
-**Typical scripts:**
+### Frontmatter Fields (MUST)
 
-| Script | Responsibility | Does NOT | Size |
-|---|---|---|---|
-| `fetch_source.py` | API requests, auth, rate limiting | Parse, transform, analyze | 200-300 lines |
-| `parse_source.py` | Parsing, cleaning, validation | Fetch, analyze | 150-200 lines |
-| `analyze_source.py` | All analyses (YoY, ranking, etc.) | Fetch, parse | 300-500 lines |
-
-**Typical utils:**
-
-| Util | Responsibility | Size |
-|---|---|---|
-| `cache_manager.py` | Response cache, differentiated TTL | 100-150 lines |
-| `rate_limiter.py` | Rate limit control, persistent counter | 100-150 lines |
-| `validators.py` | Data validations, consistency checks | 100-150 lines |
-
-**Dependency graph:** Alongside step responsibilities, define the DAG — which steps depend on which. Every step function maps to a DAG node; the dependency ordering determines the `STEPS` dict in `scripts/pipeline_template.py`. For example: `{"clean": [], "report": ["clean"]}` means `report` depends on `clean`.
-
-
-### Step 5: Plan References
-
-Detailed documentation files loaded on demand:
-
-| File | Content | Size |
-|---|---|---|
-| `api-guide.md` | How to get API key, endpoints, parameters, response format, quirks | ~1500 words |
-| `analysis-methods.md` | Each analysis explained, formulas, interpretations, examples | ~2000 words |
-| `troubleshooting.md` | Common problems, step-by-step solutions, FAQs | ~1000 words |
-
-### Step 6: Plan Assets
-
-**config.json** structure:
-
-```json
-{
-  "api": {
-    "base_url": "https://api.example.com/v1",
-    "api_key_env": "API_KEY_VAR",
-    "_instructions": "Get free key from: https://example.com/register",
-    "rate_limit_per_day": 1000,
-    "timeout_seconds": 30
-  },
-  "cache": {
-    "enabled": true,
-    "ttl_historical_days": 365,
-    "ttl_current_days": 7
-  },
-  "defaults": {
-    "param1": "value1"
-  }
-}
-```
-
-### Step 7: Cache and Rate Limiting Strategy
-
-**Cache rules:**
-- Historical data (year < current): Permanent cache (365+ days)
-- Current year data: Short cache (7 days, may be revised)
-- Metadata (lists, mappings): Permanent cache
-
-**Rate limiting:**
-- Persistent counter (file-based)
-- Pre-request verification
-- Alerts when near limit (>90%)
-- Blocking when limit reached
-
-### Step 8: Document Architecture
-
-Prepare content for `DECISIONS.md`:
-- Chosen directory structure and justification
-- Script responsibilities
-- Cache strategy and TTLs
-- Rate limiting approach
-
-## Phase 3 Checklist
-
-- [ ] Skill name defined (kebab-case, ends with `-skill`, 1-64 chars)
-- [ ] Directory structure chosen
-- [ ] Responsibilities of each script defined
-- [ ] References planned (which files, content)
-- [ ] Assets planned (which configs, structure)
-- [ ] Cache strategy defined (what, TTL)
-- [ ] Rate limiting strategy defined
-- [ ] Architecture documented
-
----
-
-# Phase 4: Detection
-
-## Objective
-
-Generate a **description** (<=1024 characters) with domain keywords for agent discovery. The description in the SKILL.md frontmatter IS the primary activation mechanism across all platforms.
-
-**Key v4.0 change:** There are NO `activation.keywords` or `activation.patterns` fields in marketplace.json. The `description` field in SKILL.md frontmatter is the single activation mechanism. All keywords must be embedded in the description itself.
-
-**Universal mode:** activation description is the primary signal — no trigger
-section, no slash commands. Coverage must include fuzzy/real-world expressions
-in the user's primary language. For skill-class outputs, include an activation
-alert sentence.
-
-## Detailed Process
-
-### Step 1: List Domain Entities
-
-Identify all relevant entities users may mention:
-
-**Entity categories:**
-
-1. **Organizations/Sources**: Names, acronyms, full names (USDA, NASS, NOAA)
-2. **Main Objects**: Domain-specific items (commodities, instruments, metrics)
-3. **Geography**: Countries, regions, states
-4. **Metrics**: production, area, yield, price, revenue, temperature
-5. **Temporality**: years, seasons, current, historical, YoY
-
-### Step 2: List Actions/Verbs
-
-Which verbs does the user use to request analyses?
-
-**Categories:**
-- **Query**: what is, how much, show me, get, tell me, find
-- **Compare**: compare, versus, vs, difference, change, growth
-- **Rank**: top, best, leading, biggest, rank, ranking, list
-- **Analyze**: analyze, trend, pattern, evolution, breakdown
-- **Forecast**: predict, project, forecast, outlook, estimate
-- **Report**: report, dashboard, summary, overview
-
-### Step 3: Generate Comprehensive Keywords
-
-For EACH metric/capability the skill implements, generate keywords:
-
-```markdown
-Metric 1: [metric name]
-Primary keywords: [3-5 keywords]
-Secondary keywords: [3-5 synonyms]
-Action keywords: [2-3 verbs specific to this metric]
-Total: ~10-15 keywords per metric
-```
-
-**Goal:** 50-80 unique keywords total across all metrics.
-
-### Step 4: List Question Variations
-
-For each analysis type, enumerate how users might ask:
-
-**YoY Comparison:**
-- "Compare X this year vs last year"
-- "How does X compare to last year"
-- "X growth rate"
-- "X change YoY"
-- "Did X increase or decrease"
-
-**Ranking:**
-- "Top states for X"
-- "Which states produce most X"
-- "Leading X producers"
-- "Ranking of X"
-
-**Trend:**
-- "X trend last N years"
-- "How has X changed over time"
-- "Historical X data"
-
-### Step 5: Define Negative Scope
-
-What should NOT activate the skill? Avoid false positives.
-
-```markdown
-## Skill Scope
-
-### WITHIN scope:
-- [specific capability 1]
-- [specific capability 2]
-
-### OUT of scope:
-- [related but unsupported topic 1]
-- [related but unsupported topic 2]
-```
-
-### Step 6: Create the Description
-
-The description must be <=1024 characters and serve as the sole activation mechanism. Pack it with the most important keywords.
-
-**Template:**
+The generated SKILL.md frontmatter must include these fields to eliminate validate.py warnings:
 
 ```yaml
-description: >-
-  [What the skill does]. Activates when users ask to [primary use case],
-  [secondary use case], or [tertiary use case]. Triggers on phrases like
-  [keyword phrase 1], [keyword phrase 2], [keyword phrase 3], [keyword
-  phrase 4]. Supports [capability 1], [capability 2], [capability 3].
-  Uses [technology/API] to [what it does with real data].
-```
+# Top-level fields (REQUIRED):
+activation: /skill-name          # namespace enforcement — top level, NOT inside metadata
 
-**Mandatory components:**
-1. Domain with specific entities (not just "crops" but "corn, soybeans, wheat")
-2. Each major API metric explicitly mentioned
-3. Action verbs covered (compare, rank, analyze, report)
-4. Temporal context (current, historical, year-over-year)
-5. Geographic context if relevant (states, regions, national)
-6. Data source name (USDA NASS, Alpha Vantage, etc.)
-
-**Constraints:**
-- Must be 1-1024 characters
-- Must be a single string (use `>-` for YAML folding)
-- No line breaks in the final output
-
-**Real example:**
-
-```yaml
-description: >-
-  Analyze US agricultural production using official USDA NASS data.
-  Activates when users ask about crop production, area planted, yield,
-  harvest progress, or crop conditions for corn, soybeans, wheat, and
-  other commodities. Triggers on phrases like compare corn production,
-  top soybean states, wheat yield trend, crop condition report, harvest
-  progress update. Supports year-over-year comparisons, state rankings,
-  trend analyses, growth decomposition, regional aggregations, and
-  comprehensive crop reports. Uses Python with NASS QuickStats API to
-  fetch real data on production, area, yield, conditions, and progress.
-```
-
-### Step 7: Mental Testing
-
-For each example question from Phase 2, verify:
-- Does the description contain relevant keywords?
-- Would an LLM reading the description match this query?
-
-If any use case would NOT be detected, add missing keywords to the description.
-
-### Step 8: Document Keywords in SKILL.md Body
-
-In the SKILL.md body (not frontmatter), include a keywords section for transparency:
-
-```markdown
-## Keywords for Automatic Detection
-
-This skill is activated when user mentions:
-
-**Entities**: [list]
-**Geography**: [list]
-**Metrics**: [list]
-**Actions**: [list]
-
-**Activation examples:**
-- "[example 1]"
-- "[example 2]"
-- "[example 3]"
-
-**Does NOT activate for:**
-- "[out of scope 1]"
-- "[out of scope 2]"
-```
-
-## Phase 4 Checklist
-
-- [ ] Category assigned from taxonomy (description-guide.md Section 2)
-- [ ] Entities extracted (data types, fields, domain terms)
-- [ ] Scenarios generated (4-6 use case labels, 2-3 anti-scenarios)
-- [ ] Description rendered from template (A {category} for {domain}...)
-- [ ] Coverage verified (each use case query has lexical match)
-- [ ] Quick Profile section written (Category, Input, Output, When to use, When not)
-- [ ] README.md generated (installation only, no workflow)
-- [ ] No per-skill AGENTS.md generated (selection info in Quick Profile)
-
----
-
-# Phase 5: Implementation
-
-## Objective
-
-**IMPLEMENT** everything with functional code, useful documentation, and real configs. Then **validate** against the spec and run a **security scan**.
-
-## Quality Rules (Non-Negotiable)
-
-### NEVER:
-
-```python
-# FORBIDDEN: placeholder code
-def analyze():
-    # TODO: implement this function
-    pass
-```
-
-```markdown
-<!-- FORBIDDEN: empty reference -->
-For more details, consult the official documentation at [external link].
-```
-
-```json
-// FORBIDDEN: placeholder config
-{ "api_key": "YOUR_API_KEY_HERE" }
-```
-
-### ALWAYS:
-
-- Complete, functional code in every function
-- Detailed docstrings with Args, Returns, Raises, Example
-- Type hints on all public functions
-- Robust error handling with specific exceptions
-- Input and output validations
-- Real values in configs with instructions for user-provided values
-- Self-contained content in references (not just links)
-
-## Implementation Order
-
-Execute these 10 steps in order:
-
-### Step 1: Create Directory Structure
-
-```bash
-mkdir -p skill-name/{scripts,references,assets}
-```
-
-The skill directory itself carries no installer; installation is handled by
-`skillctl install <name>`.
-
-### Step 2: Write SKILL.md (PRIMARY FILE - CREATE FIRST)
-
-The SKILL.md is the most important file. It must have spec-compliant frontmatter and be <500 lines.
-
-**Required frontmatter:**
-
-```yaml
----
-name: skill-name
-description: >-
-  Description here, <=1024 chars, packed with activation keywords.
-license: MIT
 metadata:
+  # REQUIRED:
   author: Author Name
   version: 1.0.0
-  created: 2026-02-27
-  last_reviewed: 2026-02-27
+  created: YYYY-MM-DD
+  last_reviewed: YYYY-MM-DD
   review_interval_days: 90
-  dependencies:
-    - url: https://api.example.com/v1
-      name: Example API
-      type: api
----
+  # RECOMMENDED — eliminates provenance warning:
+  provenance:
+    maintainer: agent-skill-creator
+    source_references: []
 ```
 
-**Frontmatter field rules:**
-- `name`: 1-64 chars, lowercase + hyphens, must match directory name
-- `description`: 1-1024 chars, the activation mechanism
-- `license`: Required (MIT, Apache-2.0, etc.)
-- `metadata.author`: Required
-- `metadata.version`: Required, semver format
-
-**Body structure (must be <500 lines total including frontmatter, starts with Quick Profile):**
-
-```markdown
-# /skill-name
-
-## Quick Profile
-
-**Category**: {category}
-**Input**: {input type and columns}
-**Output**: {output type and structure}
-**When to use**: {scenarios, comma-separated}
-**When not**: {anti-scenarios, comma-separated}
-
-## Trigger
-/{skill-name}
-
-## Workflow
-
-[Step-by-step with commands and examples]
-
-## Output Example
-
-[Concrete output JSON or CSV snippet]
-```
-
-**Keeping under 500 lines:** If content exceeds 500 lines, move overflow into a
-single `references/guide.md`. Do NOT generate multiple reference files. Use
-inline detail in SKILL.md body whenever possible — only outsource when
-prose would bloat past the 500-line cap.
-
-### Negative Section
-
-Include this `## Do NOT` section at the end of every generated SKILL.md body:
-
-```markdown
-## Do NOT
-
-- Do NOT include a file tree or directory listing — agents can derive it.
-- Do NOT hand-write the Output Example; copy it from an actual pipeline run.
-- Do NOT generate bash/ps1 wrapper scripts at the skill root.
-- Do NOT generate multiple reference files; merge into single references/guide.md.
-- Do NOT ship EVOLUTION.md in the initial delivery.
-```
-
-**Output Example enforcement:** The Output Example must be copied from a real
-pipeline run — do not hand-write or guess field values. If no real run is
-available yet, mark the section as `<!-- To be filled after first pipeline run -->`.
-
-### Step 2.5: Write AGENTS.md (Dispatch Card with Agent Constraints)
-
-Generate an AGENTS.md alongside SKILL.md. Keep it ≤25 lines — a dispatch card,
-not a duplicate of SKILL.md.
-
-```markdown
-# /skill-name
-
-[One-line description from SKILL.md frontmatter.]
-
-## How to run it
-
-```bash
-python3 scripts/pipeline.py --input <input> --output <output> --report
-```
-
-See [SKILL.md](./SKILL.md) for full instructions, input/output contracts,
-configuration, and limits.
-
-## Agent Constraints
-
-1. Must NOT fabricate or guess data. If a metric is not computable from the pipeline output, return null or "Unknown" — never a plausible value.
-2. Must NOT <constraint from Phase 2 business rules>
-3. Must <constraint from Phase 2 use cases>
-4. Must NOT <constraint from Phase 2 or Phase 4>
-```
-
-Derive constraints from Phase 2 discussions. Each must be verifiable.
-Agent Constraints live only in AGENTS.md; SKILL.md does NOT duplicate them.
-Constraint #1 is fixed — never remove it; derive #2-4 per skill.
-
-### Step 3: Implement Python Scripts
-
-Every script must follow this quality standard:
-
-```python
-#!/usr/bin/env python3
-"""
-Script title in 1 line.
-
-Detailed description: what it does, how it works,
-when to use, inputs and outputs.
-
-Example:
-    $ python script.py --param1 value1
-"""
-
-# 1. Standard library imports
-import sys
-import os
-from pathlib import Path
-from typing import Dict, List, Optional
-from datetime import datetime
-
-# 2. Third-party imports
-import requests
-
-# 3. Local imports
-from utils.cache_manager import CacheManager
-
-
-# Constants
-API_BASE_URL = "https://..."
-DEFAULT_TIMEOUT = 30
-
-
-class MainClass:
-    """
-    Class description.
-
-    Attributes:
-        attr1: description
-        attr2: description
-
-    Example:
-        >>> obj = MainClass(param)
-        >>> result = obj.method()
-    """
-
-    def __init__(self, param1: str, param2: int = 10):
-        """
-        Initialize MainClass.
-
-        Args:
-            param1: detailed description
-            param2: detailed description. Defaults to 10.
-
-        Raises:
-            ValueError: If param1 is invalid
-        """
-        if not param1:
-            raise ValueError("param1 cannot be empty")
-        self.param1 = param1
-        self.param2 = param2
-
-    def main_method(self, input_val: str) -> Dict:
-        """
-        What the method does.
-
-        Args:
-            input_val: description
-
-        Returns:
-            Dict with keys:
-                - key1: description
-                - key2: description
-
-        Raises:
-            APIError: If API request fails
-
-        Example:
-            >>> obj.main_method("value")
-            {'key1': 123, 'key2': 'abc'}
-        """
-        if not self._validate_input(input_val):
-            raise ValueError(f"Invalid input: {input_val}")
-
-        try:
-            result = self._do_work(input_val)
-            return result
-        except Exception as e:
-            print(f"Error: {e}")
-            raise
-
-
-def main():
-    """Main function with argparse."""
-    import argparse
-
-    parser = argparse.ArgumentParser(description="Script description")
-    parser.add_argument('--param1', required=True, help="Parameter description")
-    parser.add_argument('--output', default='output.json', help="Output file path")
-
-    args = parser.parse_args()
-    obj = MainClass(args.param1)
-    result = obj.main_method(args.param1)
-
-    import json
-    output_path = Path(args.output)
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    with open(output_path, 'w') as f:
-        json.dump(result, f, indent=2)
-    print(f"Saved: {output_path}")
-
-
-if __name__ == "__main__":
-    main()
-```
-
-**Checklist per script:**
-- Correct shebang (`#!/usr/bin/env python3`)
-- Complete module docstring
-- Organized imports (stdlib, third-party, local)
-- Type hints on all public functions
-- Docstrings with Args, Returns, Raises, Example
-- Error handling for risky operations
-- Input and output validations
-- Main function with argparse
-- `if __name__ == "__main__"` guard
-- No TODO, no `pass`, no `NotImplementedError`
-
-**Script patterns by type:**
-
-**fetch_source.py** (200-300 lines):
-- API client class with authentication
-- Rate limiting integration
-- Request retry with exponential backoff
-- Response validation
-- Cache integration (check cache before API call)
-
-**parse_source.py** (150-200 lines):
-- Parse raw API JSON to structured data
-- Clean data (remove formatting, handle nulls)
-- Transform data (standardize names, convert units)
-- Validate data (required fields, ranges, no duplicates)
-
-**analyze_source.py** (300-500 lines):
-- All analysis functions (YoY, ranking, trend, etc.)
-- Comprehensive report function
-- Each function: validate inputs, compute, interpret, return structured result
-
-**run_pipeline.py** (orchestrator — required when 2+ scripts run in sequence):
-- Single entry-point that imports each step's function and calls them in order
-- Wires each step's output into the next step's input **in code** (never via the agent)
-- Lets the SKILL.md give the agent ONE happy-path command instead of N prose steps
-- Skip for genuinely interactive/branching skills. See `phase5-orchestration.md`
-
-### Step 4: Write References
-
-Detailed documentation files. Each must be self-contained with real content.
-
-**api-guide.md** (~1500 words):
-- How to get API key (step-by-step)
-- Main endpoints with example requests and responses
-- Parameter details with types and valid values
-- Response format with field descriptions
-- Rate limits and how to handle them
-- Known quirks and workarounds
-
-**analysis-methods.md** (~2000 words):
-- Each analysis explained with objective and methodology
-- Mathematical formulas
-- Interpretation guidelines
-- Validation criteria
-- Complete numerical examples with real values
-
-**troubleshooting.md** (~1000 words):
-- Common problems with symptoms, causes, and solutions
-- Error messages and what they mean
-- Step-by-step debugging procedures
-
-### Step 5: Write Assets
-
-**config.json**: Real API URLs, env var names for keys, rate limits, cache TTLs, default parameters. Always include `_instructions` or `_note` fields explaining user-provided values.
-
-**metadata.json** (if needed): Domain-specific mappings, aliases, conversions, groupings.
-
-### Step 5.5: Emit Eval Spec (skip if `--no-eval`)
-
-Write the skill's loss function so it ships with the skill and doubles as a
-regression test:
-
-1. Write `evals/<skill-name>.eval.md` — prose plus a fenced ` ```json ` block
-   carrying the `criteria` (binary; each `command` with a `cmd`, or `llm-judge`)
-   and the `golden` cases derived in Phase 2. Place golden inputs/expected files
-   under `evals/golden/<case-id>/`.
-2. Copy the runner verbatim:
-   ```bash
-   cp scripts/run_evals_template.py <skill>/scripts/run_evals.py
-   chmod +x <skill>/scripts/run_evals.py
-   ```
-3. Golden cases: seed from the user's artifacts when available; otherwise
-   synthesize input-only cases marked `expected_status: "pending-first-green"`.
-4. If the skill runs from one command, add a `run` field
-   (`"run": "python3 scripts/run_pipeline.py --input {input} --output {output}"`)
-   so `run_evals.py --rollout` can execute the skill end-to-end on each golden
-   input and score the real output (post-delivery; not a gate). Omit `run` for
-   interactive/branching skills.
-
-See `phase2-eval-assessment.md` for the full format, criteria rules, the rollout
-`run` field, and the `autoresearch-universal` handoff (its rule 18 consumes this
-spec directly). On by default; `--no-eval` skips this step and emits no `evals/`
-directory.
-
-### Step 6: No per-skill installer (use skillctl)
-
-Generated skills do not ship an installer. Installation is unified through
-`skillctl install <name>`, which resolves the platform skills path from
-`scripts/platforms.py` and copies the skill directory directly.
-
-skillctl handles:
-- 17 platforms (see `scripts/platforms.py`, the single source of truth): claude-code, copilot, cursor, windsurf, cline, codex, gemini, kiro, kilo-code, factory, junie, trae, goose, opencode, roo-code, antigravity, universal
-- Corrected paths: Codex → `~/.agents/skills/`, Windsurf → `.windsurf/rules/` (project) / `global_rules.md` (global)
-- Format adapters: auto-generates `.mdc` for Cursor, `.md` rules for Windsurf, plain `.md` for Cline/Roo/Trae
-- Universal `.agents/skills/` copy after every install
-- `--all` flag to install to every detected tool at once
-
-### Step 6.5: Ship the evolution toolkit
-
-Copy the maintenance loop into the skill so it can check itself after delivery
-— no creator repo needed:
-
-```bash
-cp scripts/evolve_template.py <skill>/scripts/evolve.py
-cp scripts/skill_document.py scripts/review_staleness.py scripts/dependency_health.py \
-   scripts/schema_drift.py scripts/staleness_check.py <skill>/scripts/
-chmod +x <skill>/scripts/evolve.py
-```
-
-`python3 scripts/evolve.py` runs staleness/dependency/drift checks plus the
-eval rollout (with `--judge` to grade llm-judge criteria). Any failure appends
-the raw evidence to the skill's `EVOLUTION.md` — that file is the input for a
-regenerate pass (`/agent-skill-creator <skill> using EVOLUTION.md`).
-
-### Step 7: Write README.md
-
-Multi-platform installation instructions:
-
-```markdown
-# Skill Name
-
-Brief description.
-
-## Installation
-
-### Universal Path (works with 6+ tools)
-
-```bash
-git clone <repo-url> ~/.agents/skills/skill-name
-```
-
-Works with Codex CLI, Gemini CLI, Kiro, Antigravity, and other tools that read `~/.agents/skills/`.
-
-### Using skillctl (Recommended)
-
-```bash
-skillctl install <skill-name>                          # Auto-detect platform
-skillctl install <skill-name> --platform claude-code   # Claude Code
-skillctl install <skill-name> --platform cursor        # Cursor (auto-generates .mdc)
-skillctl install <skill-name> --all                    # All detected platforms
-skillctl update <skill-name>                           # Upgrade
-```
-
-### Manual Installation
-
-| Platform | Copy to |
-|---|---|
-| Universal | `~/.agents/skills/skill-name/` |
-| Claude Code | `~/.claude/skills/skill-name/` or `.claude/skills/skill-name/` |
-| GitHub Copilot | `.github/skills/skill-name/` |
-| Cursor | `.cursor/rules/skill-name/` |
-| Windsurf | `.windsurf/rules/skill-name/` |
-| Cline | `.clinerules/skill-name/` |
-| Codex CLI | `~/.agents/skills/skill-name/` |
-| Gemini CLI | `~/.gemini/skills/skill-name/` |
-| Kiro | `.kiro/skills/skill-name/` |
-| Trae | `.trae/rules/skill-name/` |
-| Goose | `~/.config/goose/skills/skill-name/` |
-| OpenCode | `~/.config/opencode/skills/skill-name/` |
-| Roo Code | `.roo/rules/skill-name/` |
-| Antigravity | `.agents/skills/skill-name/` |
-
-## Prerequisites
-
-[API key instructions, dependencies]
-
-## Usage Examples
-
-[3-5 examples]
-
-## Troubleshooting
-
-[Common issues and solutions]
-```
-
-### Step 7b: Generate Harness Patterns (mandatory)
-
-Every skill must include these harness patterns as executable code, not as markdown instructions.
-
-**a. Input validation module (`scripts/validate_inputs.py` or integrated into main script):**
-- Validate all user-facing inputs before computation: reject negatives where nonsensical, reject out-of-bounds values, validate enum inputs against known values
-- On validation failure: print JSON to stderr with `{"error": "...", "error_type": "validation", "details": [{"field": "...", "error": "..."}]}` and exit 1
-- If the skill brief contains `harness_requirements.input_validation`, implement those specific rules
-
-**c. Output sanity checks:**
-- After computation, check results against domain-specific bounds
-- Attach `_warnings` array to JSON output when values are unusual but not invalid
-- If the skill brief contains `harness_requirements.output_sanity`, implement those specific bounds
-
-**d. `--check-prereqs` command (or flag on the main command):**
-- Check Python version, required packages (try import), API keys (check env vars exist without printing values), network access (optional, with timeout)
-- Output: `{"ready": true/false, "checks": [{"check": "...", "required": "...", "found": "...", "ok": true/false}]}`
-
-**e. `--diagnostics` command (or flag):**
-- Output: `{"skill": "...", "version": "...", "harness_level": "...", "commands": [...], "harness_features": {"input_validation": true, ...}}`
-
-**f. SKILL.md frontmatter must include:**
-- `activation: /{skill-name}` — unique namespace prefix
-- `provenance:` block — if cliskill provides provenance metadata in the skill brief, pass it through. If standalone, generate minimal: `maintainer: unknown, version: 1.0.0, created: {today}`
-
-**g. SKILL.md body must include:**
-- `## Prerequisites` section listing runtime, deps, API keys, network requirements
-- Anti-activation in anti-goals: "Do NOT activate on general queries — wait for explicit `/{skill-name}` invocation"
-
-**h. Structured error handling throughout:**
-- All errors as JSON to stderr: `{"error": "message", "error_type": "validation|runtime|network", "hint": "..."}`
-- Exit code 1 on all errors. Never expose stack traces.
-
-### Step 8: Run Spec Validation
-
-After creating all files, run the validation script:
-
-```bash
-python3 scripts/validate.py path/to/skill/
-```
-
-Confirm the scripts run reliably (compile cleanly, deps declared, pipeline wired):
-
-```bash
-python3 scripts/check_pipeline.py path/to/skill/
-```
-
-It must report no errors. See `phase5-orchestration.md`.
-
-If an eval spec was emitted (Step 5.5), also confirm it is well-formed:
-
-```bash
-python3 path/to/skill/scripts/run_evals.py --validate
-```
-
-It must report `VALID` (exit 0). Fix the spec and re-run if not.
-
-**Universal layout check (lint):** If the skill is being built in universal mode,
-additionally run `python3 scripts/validate.py --check-universal path/to/skill/`.
-Output is lint (non-blocking — continue-on-error). Require 0 errors before
-publish. The universal check runs *after* the main spec validation and does not
-block other pipeline steps.
-
-**What it checks:**
-- Frontmatter fields present and valid (name, description, license, metadata)
-- Name matches directory name
-- Name format: 1-64 chars, lowercase + hyphens, no leading/trailing hyphens, no consecutive hyphens
-- Description: 1-1024 chars
-- SKILL.md under 500 lines
-- Required files present
-
-**If validation fails:** Fix the issues and re-run. Do not proceed until validation passes.
-
-### Step 9: Run Security Scan
-
-```bash
-python3 scripts/security_scan.py path/to/skill/
-```
-
-**What it checks:**
-- Hardcoded API keys or secrets
-- `.env` files with credentials
-- Shell injection patterns
-- Sensitive data in committed files
-
-**If security scan finds issues:** Fix them (replace hardcoded keys with env var references, remove `.env` files, sanitize shell inputs) and re-run.
-
-### Step 10: Report Results
-
-After successful validation and security scan, report to the user:
-
-```
-SKILL CREATED SUCCESSFULLY
-
-Location: ./skill-name/
-
-Statistics:
-- SKILL.md: [N] lines (<500)
-- Python code: [N] lines across [N] scripts
-- References: [N] files
-- Total files: [N]
-
-Validation: PASSED
-Security Scan: PASSED
-Pipeline: PASSED (scripts compile, deps declared)
-Evals: PASSED ([N] command checks, [M] golden cases)   # or SKIPPED (--no-eval)
-
-Main Decisions:
-- API: [name] ([short justification])
-- Analyses: [list]
-- Structure: [simple/organized/complex]
-
-Next Steps:
-1. Get API key: [instructions or link]
-2. Configure: export API_KEY_VAR="your_key"
-3. Install: skillctl install <skill-name>
-4. Test: "[example query 1]"
-
-Evals:
-- Check the skill against its golden baseline anytime: python3 scripts/run_evals.py
-- Run it end-to-end and score the real output: python3 scripts/run_evals.py --rollout
-- Optimize it against its metric: /autoresearch-universal optimize . using evals/[skill-name].eval.md
-
-See README.md for complete multi-platform installation instructions.
-```
-
-## File Creation Order Summary
-
-| Order | File | Notes |
-|---|---|---|
-| 1 | Directory structure | `mkdir -p skill-name/{scripts,references,assets}` |
-| 2 | `SKILL.md` | PRIMARY file, <500 lines, spec-compliant frontmatter |
-| 3 | `scripts/*.py` | Functional code; `run_pipeline.py` orchestrator for multi-script skills |
-| 3.5 | `contract.json` | Machine-readable contract: input assumptions, output fields, DAG, semantics |
-| 4 | `references/*.md` | Detailed documentation, self-contained |
-| 5 | `assets/*.json` | Real values, validated JSON |
-| 5.5 | `evals/*.eval.md` + `scripts/run_evals.py` | Bundled loss function; skip if `--no-eval` |
-| 6 | — | No per-skill installer; installation uses `skillctl install <name>` |
-| 6.5 | `scripts/evolve.py` + staleness/drift modules | Shipped self-maintenance loop; failures append evidence to `EVOLUTION.md` |
-| 7 | `README.md` | Multi-platform install instructions |
-| 8 | Run `validate.py` + `check_pipeline.py` | Must pass before delivery |
-| 9 | Run `security_scan.py` | Must pass before delivery |
-| 10 | Report results | Summary to user |
-
-**Universal mode:** see `references/universal-standard.md` for the complete
-file list. The generated file set drops the evolution toolkit (evolve.py,
-staleness/drift/dep-health scripts) and platform-specific activation examples.
-Domain knowledge goes in `assets/` data files, not hardcoded in Python.
-Pipelines must produce structured diagnostic output on failure. Skill-class
-outputs include Agent behavior, Diagnostics, and Feature discovery sections in
-SKILL.md. Use the simplified eval harness from Section 5 of
-`references/universal-standard.md`.
-
-## Phase 5 Checklist
-
-- [ ] Directory structure created
-- [ ] README.md written (installation-only, no workflow description)
-- [ ] SKILL.md created FIRST with spec-compliant frontmatter
-- [ ] SKILL.md body starts with ## Quick Profile section
-- [ ] Quick Profile has: Category, Input, Output, When to use (≥2), When not (≥1)
-- [ ] SKILL.md is <500 lines
-- [ ] Frontmatter has: name, description (<=1024 chars), license, metadata (author, version)
-- [ ] Frontmatter has: `activation: /{skill-name}`
-- [ ] Frontmatter has: `provenance:` block (full if from cliskill, minimal if standalone)
-- [ ] Temporal metadata included (metadata.created, metadata.last_reviewed, metadata.review_interval_days)
-- [ ] Name is kebab-case, ends with `-skill`, matches directory
-- [ ] SKILL.md body has `## Prerequisites` section
-- [ ] SKILL.md anti-goals include anti-activation instruction
-- [ ] All Python scripts implemented with functional code
-- [ ] contract.json emitted with input/output/dag/semantics sections
-- [ ] No TODO, no `pass`, no `NotImplementedError`, no placeholders
-- [ ] All scripts have: shebang, docstrings, type hints, error handling
-- [ ] Multi-script skill has one `scripts/run_pipeline.py` orchestrator (steps wired in code, one happy-path command)
-- [ ] `check_pipeline.py` reports no errors (scripts compile, third-party deps declared)
-- [ ] Input validation implemented (reject bad inputs with structured JSON errors)
-- [ ] Output sanity checks implemented (warn on extreme values)
-- [ ] Defensive I/O patterns applied (encoding, columns, dirs, NULLs)
-
-- [ ] `--check-prereqs` command returns structured JSON
-- [ ] `--diagnostics` command returns skill metadata
-- [ ] All errors as JSON to stderr with error_type classification
-- [ ] References written with real, self-contained content
-- [ ] Assets created with valid JSON and real values
-- [ ] Eval spec emitted (`evals/<name>.eval.md` + `scripts/run_evals.py`) unless `--no-eval`
-- [ ] Eval spec validates (`python3 scripts/run_evals.py --validate` → VALID)
-- [ ] At least one golden case marked `"split": "test"` (holdout — skipped by default, scored only with `--include-holdout`, never fed to an optimization loop)
-- [ ] No per-skill installer (installation uses `skillctl install <name>`)
-- [ ] AGENTS.md generated as ≤25-line dispatch card with Agent Constraints
-- [ ] Evolution toolkit shipped (`scripts/evolve.py` + staleness/drift/dep-health modules; `python3 scripts/evolve.py` exits 0)
-- [ ] Eval spec has a `judge` block with a pinned model + known-bad canary when any criterion is `llm-judge`
-- [ ] SKILL.md has `## Runtime Contract` section (no source-code reading in normal use)
-- [ ] EVOLUTION.md NOT present in initial delivery (only generated after post-delivery failure)
-- [ ] `README.md` written with multi-platform install instructions (via `skillctl`)
-- [ ] `requirements.txt` created (if third-party dependencies used)
-- [ ] Spec validation passed (`scripts/validate.py`)
-- [ ] Contract validation passed (`scripts/validate.py --check-contract`)
-- [ ] Security scan passed (`scripts/security_scan.py`)
-- [ ] Staleness check passed (`scripts/staleness_check.py`)
-- [ ] Results reported to user
-
----
-
-# Quality Standards Reminders
-
-These standards apply across ALL phases and ALL generated files.
-
-## Code Quality
-
-**Every function must be:**
-- Complete and functional (no stubs)
-- Documented with docstrings (Args, Returns, Raises, Example)
-- Type-hinted on all public interfaces
-- Protected by error handling
-- Validated on inputs and outputs
-
-**Every script must have:**
-- `#!/usr/bin/env python3` shebang
-- Module-level docstring
-- Organized imports (stdlib, third-party, local)
-- Constants at top level
-- `main()` function with argparse
-- `if __name__ == "__main__"` guard
-
-## Documentation Quality
-
-**References must be:**
-- Self-contained (not just links to external docs)
-- Concrete (real values, executable examples)
-- Substantial (1000+ words for main reference files)
-- Well-structured (headings, lists, code blocks)
-
-**SKILL.md must be:**
-- Under 500 lines (move detail to references)
-- Frontmatter-compliant (name, description, license, metadata)
-- Actionable (workflows with specific commands)
-
-## Configuration Quality
-
-**JSON configs must be:**
-- Syntactically valid (always validate with `python -c "import json; ..."`)
-- Populated with real values (real API URLs, real rate limits)
-- Annotated with `_instructions` or `_note` fields for user-provided values
-- Never contain hardcoded secrets
-
-## Naming Quality
-
-- Skill names: kebab-case, 1-64 chars, must end with `-skill`
-- Python files: snake_case
-- Classes: PascalCase
-- Functions/methods: snake_case
-- Constants: UPPER_SNAKE_CASE
-
-## Anti-Patterns to Avoid
-
-| Anti-Pattern | Correct Approach |
-|---|---|
-| `def analyze(): pass` | Complete implementation with real logic |
-| `# TODO: implement` | Implement it now |
-| `api_key: YOUR_KEY_HERE` | `api_key_env: "ENV_VAR_NAME"` with instructions |
-| `See official docs at [link]` | Include the relevant information directly |
-| SKILL.md over 500 lines | Move detail to `references/` |
-| marketplace.json as step 0 | SKILL.md is the primary file, created first |
-| Name missing `-skill` suffix | End every skill name with `-skill`: `stock-analyzer-skill` |
-| Description over 1024 chars | Trim to essential keywords within limit |
+### Phase 4 Checklist
+
+- [ ] Description starts with "A {category}" or "An {category}"
+- [ ] Description includes domain-specific activation keywords
+- [ ] Trigger examples match user's likely invocation patterns
+- [ ] Multi-language keywords for non-English domains
+- [ ] activation field in frontmatter: `/skill-name`
+- [ ] provenance metadata in frontmatter (recommended)
+## Phase 5: Implementation
+
+### File Creation Order
+
+1. `SKILL.md` — primary file, created FIRST
+2. `scripts/pipeline.py` — core implementation (or `scripts/run_pipeline.py` for multi-script)
+3. `scripts/run_evals.py` — eval harness (copy from `scripts/run_evals_template.py`)
+4. `scripts/evolve.py` — maintenance loop (copy from `scripts/evolve_template.py`)
+5. `evals/<name>.eval.md` — eval specification
+6. `AGENTS.md` — ≤25 line dispatch card (run command + SKILL.md link. Do NOT read scripts/)
+7. `README.md` — skillctl install instructions only (no manual install table)
+8. `references/` — only if detail exceeds SKILL.md 500-line limit. Merge into single `references/guide.md`.
+
+### Output Quality Rules (MUST)
+
+- [ ] `report.md` first 5 lines start with executive summary ("本周结论" or "Executive Summary"), NOT a data table
+- [ ] Pipeline stdout in default mode prints human-readable summary (≤8 lines)
+- [ ] Pipeline has `--json` flag for machine-readable JSON output
+- [ ] Generated SKILL.md includes `## Runtime Contract` section:
+  "scripts/ are implementation details, do not read by default. Only run: `python3 scripts/pipeline.py --input <file> --output <dir>`"
+- [ ] Summary text is rule-generated (template-based), not LLM-dependent
+
+### Phase 5 Self-Check
+
+Before running validate.py: self-check every MUST item in this checklist.
+If validate or check_pipeline fail: read ONLY the reported errors, fix ONLY the affected files, re-run.
+After 3 repeated failures: stop and report to user with full error output.
+
+### Phase 5 Checklist
+
+- [ ] All files listed in File Creation Order exist
+- [ ] SKILL.md body < 500 lines
+- [ ] Output Quality Rules all satisfied
+- [ ] NO bash/ps1/bat wrapper files at skill root
+- [ ] NO EVOLUTION.md in initial delivery (generated post-delivery only)
+- [ ] NO references/api-guide.md unless the skill genuinely needs an API
+- [ ] AGENTS.md ≤ 25 lines (dispatch card only)
+- [ ] README.md uses skillctl install only (no manual install table)
+- [ ] validate.py passes with 0 errors
+- [ ] security_scan.py passes with 0 high-severity findings
+- [ ] Pipeline runs on golden case data
+
+### Harness Contract
+
+The generated skill's eval harness:
+- `run_evals.py --rollout`: runs skill on golden inputs, scores real output
+- `--promote`: captures first-green baselines (regression gate)
+- `--judge`: grades llm-judge criteria with pinned judge (model + temperature)
+- `"split": "test"` holdout cases: scored only at release, never fed to optimization loop
+- `evolve.py`: runs staleness/dependency/drift checks + rollout; failures append to EVOLUTION.md

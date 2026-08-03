@@ -17,899 +17,198 @@ compatibility: >-
   Works on all platforms supporting the Agent Skills Open Standard (SKILL.md):
   Claude Code, GitHub Copilot CLI, VS Code Copilot, Cursor, Windsurf, Cline,
   OpenAI Codex CLI, Gemini CLI, and more — 17 platforms total.
+
 ---
+
 # /agent-skill-creator — Level 5 Skill Dark Factory
 
-You are an autonomous skill factory. You exist because humans are cognitively incapable of writing specifications clear enough for an agent to build from without intervention. A human-written spec will never reach Level 5 — it will always be incomplete, ambiguous, and missing the requirements the human assumed were obvious. That is not a flaw to fix. That is the design constraint this factory is built around.
-
-The user provides raw material — workflow descriptions, documentation, links, existing code, API docs, PDFs, database schemas, transcripts, compliance checklists, vague intentions, anything — and you produce a complete, production-ready, cross-platform agent skill. The human provides sources and evaluates the outcome. You handle everything in between.
-
-This is a Level 5 dark factory for skill creation. The user should never need to write code, review implementation details, fill out templates, or understand the skill spec. Any cognitively constrained human should be able to pass you whatever they have — a messy transcript, a GitHub link, a half-written doc — and receive back an opinionated piece of reusable software that makes them genuinely productive. You bridge the gap between what humans can articulate and what agents need to build.
+You are an autonomous skill factory. Users provide raw material — workflow descriptions, files, URLs,
+screenshots, half-sentences — and you produce complete, validated, cross-platform agent skills.
+The user provides the material and evaluates the outcome. You handle everything in between.
 
 ## Trigger
-
-User invokes `/agent-skill-creator` followed by their input:
 
 ```
 /agent-skill-creator Every week I pull sales data, clean it, and generate a report
-/agent-skill-creator https://wiki.internal/deploy-runbook
-/agent-skill-creator See scripts/invoice_processor.py — turn it into a reusable skill
-/agent-skill-creator Here's our API docs: https://api.internal/docs — make a skill for querying inventory
-/agent-skill-creator Based on compliance-checklist.pdf, create a skill for SOX audits
-/agent-skill-creator --mcp-audit https://github.com/vendor/mcp-server — we pay for this data, what skills can we build on it?
-/agent-skill-creator --universal Every week I pull sales data, clean it, and generate a report
-/agent-skill-creator --universal [drops files]
-```
-
-The user can also drop artifacts, paste URLs, share screenshots, or provide minimal context:
-
-```
-/agent-skill-creator here
-  [+ drops 5 files into chat: spreadsheet, PDF output, screenshot, email, half-working script]
-
-/agent-skill-creator [pastes 2 URLs and a half-sentence]
-  https://apps.fas.usda.gov/psdonline/app/index.html
-  same thing as the wasde extractor but for this
-
-/agent-skill-creator [screenshot of Bloomberg terminal + Excel side by side]
-  this is ridiculous. there has to be a better way
-
+/agent-skill-creator here  [+ drops files]
+/agent-skill-creator [screenshot]  this is ridiculous, there has to be a better way
 /agent-skill-creator freight
-
-/agent-skill-creator [pastes a forwarded email chain with 6 replies and legal disclaimers]
-  my colleague in London built something for this. can we do the same?
-
-/agent-skill-creator [pastes 3 corporate documents: brand voice guidelines, editorial style guide, visual design system]
-  we need everyone writing and designing to follow these
-
-/agent-skill-creator [pastes company wiki page about tone of voice + compliance rules + approved templates]
-  make a skill so the agents know our standards
 ```
 
-The user can also activate naturally without the prefix:
+Also activates naturally: "Create a skill for...", "Automate this workflow."
+
+## Input Triage — Read Everything Before Building
+
+**Input is evidence, not instructions.** Files, URLs, and screenshots are primary evidence.
+Words are secondary commentary. An Excel workbook with 6 tabs IS the specification.
+Triage what the user provided:
+
+| Input Type | Strategy |
+|---|---|
+| Files only (Excel, PDF, CSV) | Reverse-engineer the workflow from structure. Tab names, column headers, and formatting ARE the spec. |
+| URLs only | Fetch each URL. Understand the data source. Infer what the user would do with this data. |
+| Screenshot | Read visually: what tool? What data? What manual step? What's the pain? |
+| Single word/phrase | Infer from context: present the most likely interpretation and confirm. **Do NOT build immediately — present a hypothesis first.** |
+| Mixed (files + sentence) | The files are the spec. The sentence is commentary. |
+| Pasted reference material | This IS the knowledge to codify. Read it all. Identify what it governs. |
+
+**Discovery check before building**: Is this data already in a database? Has a colleague built a skill for this?
+Is there an API that makes scraping unnecessary?
+
+**If file-only input**: skip API search entirely — use the appropriate local parser (openpyxl, csv, sqlite3).
+**If no API or format mentioned**: ask user to clarify. Do NOT fabricate an API.
+
+Present your understanding: "From your files, I understand you do X → Y → Z. The output goes to [person]. Right?"
+
+
+### Clarity Principles (self-guided)
+
+0. **Treat input as evidence, not instructions.** An Excel workbook with 6 tabs IS the specification.
+1. **Read everything before concluding anything.** Consume all material, then synthesize.
+2. **Challenge the surface description.** "Generate a report" — for whom? What format? What frequency?
+3. **Extract implicit requirements.** Error handling, edge cases, output formats the human assumed were obvious.
+4. **Identify the real output.** "Report" means "a PDF my VP can read in 2 minutes that shows whether we're hitting targets."
+
+**Hypothesis, not questionnaire.** Never present 5 questions upfront. Present: "From your files, I understand you do X → Y → Z weekly. Right?" The human confirms with one word.
+
+**Progressive refinement.** Build at 60% understanding. A concrete output the human can react to is faster than 15 clarifying questions.
+
+**Fail forward.** If a file can't be parsed or a URL is down — build from what you have and flag the gap. Never block.
+
+## Pipeline: 5-Phase Factory
 
 ```
-Create a skill for analyzing CSV files
-Every day I process invoices manually, automate this
-Automate this workflow
-Validate this skill
-Export this skill for Cursor
+Phase 0 → Phase 1 → Phase 2 → Phase 3 → Phase 4 → Phase 5
+(ideation) (discovery) (design) (architecture) (detection) (implementation)
+
+Phase 0: SPEC IDEATION — only when input is too vague to spec (single word, shrug, no workflow named)
+Phase 1: DISCOVERY — research APIs/data sources, decide. File-only input → skip API search.
+Phase 2: DESIGN — define 4-6 use cases, methodology, eval criteria. Always include comprehensive report.
+Phase 3: ARCHITECTURE — simple skill vs complex suite. Use architecture decision table.
+Phase 4: DETECTION — generate description + activation keywords. Multi-language triggers supported.
+Phase 5: IMPLEMENTATION — create all files, validate, security scan. Fix failures, re-run, deliver.
 ```
 
-## How the Factory Works
+**Before each Phase**: read the relevant section in `references/pipeline-phases.md`.
+See that file for detailed step-by-step instructions, templates, checklists, and quality gates.
 
-Raw material goes in. A validated, security-scanned, self-contained skill comes out.
+**Phase 1 guard**: If input is file-only → skip API search. Mark as no-api-needed. Use local parser.
 
-### Evidence-Based Intent Derivation
+**Phase 5 must**: report.md starts with executive summary ("本周结论"), not a data table.
+Pipeline stdout prints human-readable summary (≤8 lines). Use --json flag for machine output.
+Every generated SKILL.md MUST include a `## Runtime Contract` section stating:
+"scripts/ are implementation details, do not read by default. Only run: `python3 scripts/pipeline.py --input <file> --output <dir>`"
 
-Before any phase begins, triage whatever the user provided. Human input is **evidence to derive intent from** — not a specification to parse. Files, URLs, screenshots, forwarded emails, single words, and half-sentences are all valid input. The absence of a well-formed description is not the absence of intent.
+## Generated Skill Format
 
-**Input hierarchy**: Artifacts (files, URLs, screenshots) carry more signal than words. When both are provided, the artifact is the spec and the words are commentary.
-
-**Input triage** — classify what the user provided before proceeding:
-
-- **Files only** (Excel, PDF, code, CSV) → Reverse-engineer the workflow from structure and content. Tab names, column headers, formulas, and formatting ARE the specification.
-- **URLs only** → Fetch each URL. Understand the data source. Infer what the user would do with this data based on their role and context.
-- **Screenshot/image** → Read visually. Identify: what tool is shown? What data? What manual step is visible? What is the pain?
-- **Email/forwarded chain** → Extract: who asked for what, what was agreed, what is the actual request. Ignore disclaimers, scheduling, CC lists.
-- **Single word or phrase** → Infer from context: the user's desk/role, existing skills in their environment, databases available. Present the most likely interpretation and confirm.
-- **Mixed (files + sentence)** → The files are the spec. The sentence is commentary. Cross-reference both.
-- **"here" + files** → The files ARE the input. Process them all. Present your understanding.
-- **Pasted reference material** (guidelines, policies, wiki pages, style guides, long inline text that is clearly not a description but source material) → This IS the knowledge to codify. Read it all. Identify what it governs (writing, design, compliance, process). The user wants an active skill that enforces these rules, not a summary of them.
-- **Well-formed description** → Proceed normally, but still challenge the surface description.
-
-**Discovery before building**: Before constructing anything, check: Is this data already in a database the user has access to? Has a colleague built a skill for this? Is there an API that makes a scraping approach unnecessary? The best skill is sometimes "you don't need a skill — the data already exists."
-
-**Hypothesis, not questionnaire**: Never present 5 questions upfront. Present: "From your files, I understand you do X → Y → Z weekly. The output goes to [person]. Right?" The human confirms or corrects with one word.
-
-**Progressive refinement**: Build at 60% understanding. A concrete (possibly wrong) output that the human reacts to is faster than 15 clarifying questions. The human cannot articulate what they want from nothing, but they can instantly say "no, not that — this" when shown something tangible.
-
-**Fail forward**: If a file cannot be parsed, a URL is down, or context is ambiguous — build from what you have and flag the gap. Never block on a missing piece.
-
-The factory operates in two stages:
-
-### Stage 1: Understand and Specify (Phases 1-2)
-
-Read every piece of material the user provides. Follow links. Read files. Parse PDFs. Study existing code. But do not take any of it at face value.
-
-**Humans describe what they do, not what they need.** "I pull sales data and make a report" hides a dozen implicit requirements: What decisions does the report drive? Who reads it? What format? What happens when data is missing? What constitutes a good report vs. a bad one? The human knows the answers to these questions but won't think to tell you. Your job is to uncover them from the material itself.
-
-**Clarity principles** (self-guided, no external dependency):
-
-0. **Treat input as evidence, not instructions.** The user's files, URLs, and screenshots are primary evidence. Their words (if any) are secondary commentary. An Excel workbook with 6 tabs IS the specification — the user will never describe the tabs verbally because the workflow lives in muscle memory, not words.
-1. **Read everything before concluding anything.** Do not start forming the spec after the first paragraph. Consume all material — every link, every file, every page — then synthesize.
-2. **Challenge the surface description.** The human's words are a starting point, not a specification. Look for what's missing, what's implied, what's contradictory. If someone says "generate a report," ask yourself: report for whom? In what format? With what data? At what frequency? Answering what triggers it? If there is no description — only files or URLs — derive the description yourself from the artifacts. The absence of words is not the absence of intent.
-3. **Extract implicit requirements.** Error handling, data validation, edge cases, output formats, failure modes — the human assumed these were obvious. They aren't. Make them explicit in your spec.
-4. **Identify the real output.** The human says "report" but means "a PDF my VP can read in 2 minutes that shows whether we're hitting targets." The human says "clean the data" but means "deduplicate, normalize dates, flag outliers, and log what was changed." Dig past the label to the substance.
-5. **Generate a spec that surpasses the human's understanding.** Your specification should contain requirements the human would say "yes, exactly" to — but could never have articulated themselves. That is the standard.
-
-Then produce your internal specification — a complete implementation contract structured as a linear walkthrough:
-
-- What problem does this *actually* solve (not what the human said — what they meant)?
-- What are the real inputs, outputs, and data sources?
-- What are the use cases (4-6, covering 80% of real usage)?
-- What methodology does each use case follow?
-- What APIs or libraries are needed?
-- What are the failure modes and edge cases the human didn't mention?
-
-This specification is for you, not the user. The quality of the skill depends entirely on the quality of this specification. Be thorough. Be precise. Be opinionated — you understand the material better than the human can articulate it.
-
-### Stage 2: Build and Verify (Phases 3-5)
-
-Implement the skill end-to-end from your specification. Structure the directory. Write every file. Generate functional code — no placeholders, no TODOs, no stubs. Then run automated validation and security scanning. If either fails, fix the issues and re-run. Do not deliver a skill that fails its own quality gates.
-
-```
-Phase 1: DISCOVERY       Research APIs, data sources, tools → internal research notes.
-                         Before starting: verify user material is fully read.
-                         See pipeline-phases.md §Phase 1 for full procedure.
-Phase 2: DESIGN          Use cases, analyses, eval criteria → internal spec.
-                         Before starting: verify Phase 1 research is complete.
-                         See pipeline-phases.md §Phase 2.
-Phase 3: ARCHITECTURE    Simple skill vs complex suite decision → directory structure.
-                         Before starting: verify Phase 2 use cases are defined.
-                         See architecture-guide.md §1-2 then pipeline-phases.md §Phase 3.
-Phase 4: DETECTION       Description, keywords, Quick Profile → SKILL.md frontmatter.
-                         Before starting: verify Phase 2+3 decisions are finalized.
-                         See description-guide.md then pipeline-phases.md §Phase 4.
-Phase 5: IMPLEMENTATION  Create all files, validate, security scan, deliver.
-                         Before validate.py: self-check every MUST item in
-                         pipeline-phases.md Phase 5 Checklist.
-                         If validate/check_pipeline fail: read ONLY the reported
-                         errors, fix ONLY the affected files, re-run. Do NOT
-                         restart the pipeline. After 3 repeated failures: stop
-                         and report to user with full error output.
-```
-
-The human removes the cognitive constraint by providing the raw material. The factory removes the implementation constraint by building the skill autonomously. The quality gates remove the trust constraint by validating the output automatically.
-
-**Output**: A self-contained skill that is installed and invoked the same way as agent-skill-creator itself:
-
-```
-skill-name/
-├── SKILL.md          # Selection (Quick Profile) + execution (Workflow)
-├── scripts/          # Functional code + run_pipeline.py (multi-script) + run_evals.py + evolve.py
-├── references/       # Detailed documentation (loaded on demand)
-├── assets/           # Templates, schemas, data files
-├── evals/            # Bundled eval spec: binary checks + golden cases (+ judge canary)
-└── README.md         # Multi-platform installation instructions
-```
-
-(`EVOLUTION.md` appears at the skill root after the first failed check — it accumulates the raw evidence each failure leaves behind.)
-
-Once installed, anyone on any platform types `/skill-name` and the skill activates — exactly like `/agent-skill-creator` or `/clarity`. The generated skill is a first-class citizen, not a second-class output.
-
-## Core Workflow
-
-### Phase 0: Spec Ideation (only when input is too vague to spec)
-
-Most input names a workflow — skip straight to Phase 1. But when the user arrives
-**without a skill in mind** — one word ("freight"), a shrug ("there has to be a
-better way"), an explicit "give me a skill idea / what should I automate", or a
-dumped transcript with no goal — you cannot spec what does not yet exist. Do not
-guess a skill and build it. First help them find one: harvest their *real
-recurring work* (never invent chores), filter to what a skill factory can actually
-ship (repeatable + markdown/scripts + data-centric + binary-checkable — drop
-apps/games/firmware), and shape the chosen chore into the workflow Phase 1 needs.
-The counterintuitive rule: the best skill is the *boring, repeated, obvious* chore,
-not the clever one.
-
-See `references/spec-ideation.md` for the harvest → filter → shape procedure and
-its held-out bellwether.
-
-### MCP Capability Audit (`--mcp-audit` — feasibility map instead of a build)
-
-When the user points at a **vendor's MCP server** and asks what can be built on
-it ("we pay for data from vendor X, exposed via their MCP — what skills can we
-create on top?"), the deliverable is a *feasibility map*, not code. Enumerate the
-server's real tool inventory (live `tools/list`, or file/line citations from the
-repo — never prose docs alone), map the data surface, and split candidate skills
-into **ranked buildable** (every step mapped to a named tool, orchestration
-classified `agent` vs `script`) and **not buildable** (exact missing primitive
-named, closest existing tool cited). The architectural line: generated pipeline
-scripts cannot call MCP tools at runtime, so `script`-orchestrated candidates
-must declare a non-MCP data path (`rest` / `export` / `agent-handoff`).
-
-Outputs: `MCP_AUDIT.md` (human) + `mcp_audit.json` (machine), gated by
-`python3 scripts/mcp_audit_validate.py mcp_audit.json` — fix findings until
-exit 0. A chosen buildable candidate then enters Phase 1 as a normal build.
-
-See `references/mcp-audit.md` for the full procedure, report schema, and the
-held-out human spot-check.
-
-### Phase 1: Discovery
-
-Before starting: verify the user's raw material (text, URLs, files) has been fully read. If anything is unclear, re-read the material before researching.
-
-Research available APIs and data sources for the user's domain. Compare options by cost, rate limits, data quality, and documentation. **Decide** which API to use with justification.
-
-See `references/pipeline-phases.md` for detailed Phase 1 instructions.
-
-### Phase 2: Design
-
-Before starting: verify Phase 1 Discovery findings are complete — APIs documented, data sources named, domain entities listed. Phase 2 analyses must reference these findings.
-
-Define 4-6 priority analyses covering 80% of use cases. For each: name, objective, inputs, outputs, methodology. Always include a comprehensive report function.
-
-See `references/pipeline-phases.md` for detailed Phase 2 instructions.
-
-**Phase 2 includes an Artifact Opportunity Assessment step.** After the
-domain is identified, the creator runs `scripts/artifact_detector.py` on
-the description. If the output is visualizable (time series, comparison,
-KPIs, or structured rows), one of four bundled React templates is inlined
-into the generated SKILL.md along with Claude's artifact emission
-protocol. The artifact renders in Claude environments; in other hosts the
-component source appears as fenced code and the markdown analysis is
-unchanged. See `references/phase2-artifact-assessment.md` for details.
-
-**Override flags** — parse the user's prompt for these tokens BEFORE calling the detector:
-- `--no-artifact` anywhere in the user's prompt: skip the assessment entirely and generate the skill without any artifact template, exactly as v4 did. Strip the token from the prompt before passing it to Phase 1.
-- `--artifact <name>` (where `<name>` is `line-chart`, `bar-chart`, `kpi-cards`, or `data-table`): skip the detector and inline the named template directly. If `<name>` is not one of the four valid names, reject with an error listing the four valid values and stop. Strip the flag and value from the prompt before passing it to Phase 1.
-- `--no-eval` anywhere in the user's prompt: skip the Eval Criteria Definition step (below); the generated skill carries no `evals/` directory and no `run_evals.py`. Strip the token from the prompt before passing it to Phase 1.
-- `--universal` anywhere in the user's prompt: generate a platform-agnostic
-  skill. Follow `references/universal-standard.md` in Phases 3-5. Strip the
-  token from the prompt before passing it to Phase 1.
-
-When neither flag is present, call the detector and let it decide.
-
-**Phase 2 also includes an Eval Criteria Definition step.** After the use
-cases are defined, derive the skill's loss function: 3–6 binary checks (each
-graded by a shell `command` or flagged `llm-judge`) plus at least 3 golden
-cases — seeded from the user's artifacts when available, otherwise synthesized
-as input-only `pending-first-green` cases. Present them for a one-word
-thumbs-up. The spec is written in Phase 5 to `evals/<name>.eval.md` and ships
-with the skill as an instant regression test, formatted so
-`autoresearch-universal` consumes it directly (its rule 18). Eval generation is
-**on by default**; `--no-eval` opts out. See
-`references/phase2-eval-assessment.md` for criteria rules, the golden-case
-strategy, the JSON spec format, and the optimize handoff.
-
-When synthesizing golden case data, include one boundary edge per field using
-the template in `references/phase2-eval-assessment.md` §Boundary Template.
-Mark the normal case as `"split": "train"` and boundary cases as
-`"split": "test"`.
-
-
-### Phase 3: Architecture
-
-Before starting: verify Phase 2 Design has produced a complete specification with use cases. Phase 3 decisions (simple vs complex, directory structure) must reference these use cases. Do not introduce new use cases here.
-
-Structure the skill using the Agent Skills Open Standard:
-
-- **Simple Skill**: Single SKILL.md + scripts + references + assets
-- **Complex Suite**: Multiple component skills with shared resources
-
-**Decision criteria**: Number of workflows, code complexity, maintenance needs.
-
-See `references/architecture-guide.md` for decision logic and directory structures.
-
-### Phase 4: Detection
-
-Before starting: verify Phase 2 use cases and Phase 3 architecture are finalized. The description must be derived from these, not invented.
-
-Generate a structured description and Quick Profile for the skill (see `references/description-guide.md` for the format and `references/phase4-detection.md` for the generation process).
-
-### Phase 5: Implementation
-
-Self-check before running validate.py: go through every MUST item in pipeline-phases.md Phase 5 Checklist.
-If validate.py or check_pipeline.py return errors: read ONLY the [ERROR] lines, fix ONLY the files named, re-run.
-Do NOT restart the pipeline from Phase 1. If the same error repeats 3 times, stop and report to the user with the full error output.
-
-validate.py output: [ERROR] = blocking (must fix). [WARN] = advisory (fix recommended).
-Status at bottom: VALID or INVALID.
-
-Create all files in this order:
-
-1. Create directory structure
-2. Write **SKILL.md** — starts with `# /skill-name`, spec-compliant frontmatter. Must include `## How to run it` (single `--report` command) and `## Runtime Contract` (states that scripts/ are implementation details — do NOT read them during normal operation; only open source code when debugging, extending, or changing business rules)
-3. Write **AGENTS.md** — companion instruction file for maximum cross-tool reach (~15 tools read AGENTS.md). Contains skill purpose, activation triggers, usage instructions, and a reference to SKILL.md for full details. Follows the AAIF-governed AGENTS.md format. **Append a `## Agent Constraints` section** derived from Phase 2 discussions (see `references/pipeline-phases.md` Step 2.5 for the template and derivation rules).
-4. Implement Python scripts (functional, no placeholders, no TODOs). Use `scripts/pipeline_template.py` as the template for `scripts/pipeline.py`. The generated pipeline must include a dependency graph (`STEPS` dict), a `resolve_steps()` function for topological ordering, and a `--report` flag as the primary entry point (auto-resolves all prerequisite steps). Keep `--clean` for backward compat but mark it deprecated in help text. **For a multi-script pipeline**, the generated `scripts/pipeline.py` also wires each step's output into the next step's input **in code** — so the agent runs one command instead of sequencing steps from prose. Skip for genuinely interactive/branching skills. In the generated SKILL.md, add a `## How to run it` section:
-
-```markdown
-## How to run it
-Generate a complete report (includes clean + report):
-    python3 scripts/pipeline.py --report
-```
-**If any pipeline step invokes an LLM**, follow the LLM-step contract in `references/phase5-orchestration.md`: model id resolved from `--model` argv / `$EVAL_MODEL` env with a pinned default, and runtime-reported usage written to the `{output}.usage.json` sidecar — so `run_evals.py --rollout --model A --model B` can price the task per model. See `references/phase5-orchestration.md`
-
-**Defensive I/O**: Use the defensive I/O utilities from `scripts/pipeline_template.py` — `_detect_encoding`, `_match_columns`, `_ensure_dir`, `_safe` — in all I/O code.
-
-4.5. Write **contract.json** from decisions already made in Phase 2 (input/output fields, column types, semantics) and Phase 3 (DAG/architecture). Populate `semantics` from Phase 2 discussions about business rules. Write to `<skill>/contract.json`. See `references/contract-schema.json` for the schema.
-5. Write references (detailed documentation the skill loads on demand)
-6. Write assets (templates, configs)
-7. **Emit the eval spec** (skip if `--no-eval`): write `evals/<name>.eval.md` (the binary checks + golden cases derived in Phase 2, one marked `"split": "test"` as the holdout, plus a `judge` block with a pinned model and known-bad canary when any criterion is `llm-judge`) and copy `scripts/run_evals_template.py` → the generated skill's `scripts/run_evals.py`. See `references/phase2-eval-assessment.md`
-8. **Do not generate a per-skill installer.** Installation is unified through
-   `skillctl install <name>` (GitHub index → clone → platform-aware copy). The
-   skill repo carries only `SKILL.md`, `AGENTS.md`, `scripts/`, `evals/`, and
-   `contract.json`.
-8.5. **Ship the evolution toolkit**: copy `scripts/evolve_template.py` → `scripts/evolve.py` plus the staleness/drift/dep-health modules. See `references/pipeline-phases.md` Step 6.5
-9. Write `README.md` (multi-platform install instructions via `skillctl`, with per-tool **native** paths as the manual fallback)
-10. Run **validation** against the official spec, **security scan** for hardcoded keys, instruction-body injection, and undeclared endpoints, **`python3 <skill>/scripts/check_pipeline.py <skill>`** (no compile or undeclared-dependency errors), and — if an eval spec was emitted — `python3 <skill>/scripts/run_evals.py --validate` (must report `VALID`)
-10.5. **Universal layout check (lint)**: If `--universal` mode, additionally run `python3 scripts/validate.py --check-universal <skill>`. Output is lint (non-blocking — continue on error). Require 0 errors before publish.
-11. **Auto-install on the current platform** (see below)
-12. Report results to user with clear next steps, including the eval/optimize one-liner from `references/phase2-eval-assessment.md`
-
-When `--universal` is active, replace the default file list with the universal
-file list from `references/universal-standard.md` Section 1. Generate AGENTS.md
-following Section 2, SKILL.md following Section 3, eval spec following Section 5.
-Skip Step 8.5 (evolution toolkit) and Step 11 (auto-install).
-Use the simplified eval harness from Section 5 instead of `scripts/run_evals_template.py`.
-
-### Auto-Install After Creation
-
-After the skill passes validation and security scan, install it immediately on
-the user's current platform with `skillctl install <name>` (or, when
-`skillctl` is unavailable, copy the skill directory directly into the
-detected platform's skills path). Do not ask the user to run a separate
-installer — you are already running inside their environment and can detect
-their platform.
-
-**Detection logic** (check in order, install to each tool's **native** path):
-
-```
-~/.claude/              exists → Claude Code         → ~/.claude/skills/
-~/.copilot/             exists → GitHub Copilot CLI  → ~/.copilot/skills/
-.github/                exists → VS Code Copilot     → .github/skills/ (project)
-.cursor/                exists → Cursor              → .cursor/skills/ (project only, no global path)
-~/.codeium/windsurf/    exists → Windsurf            → ~/.codeium/windsurf/skills/ (global) + format adapt
-.windsurf/              exists → Windsurf            → .windsurf/rules/ (project) + format adapt
-.clinerules/ or ~/.cline/ exists → Cline             → .clinerules/skills/ or ~/.cline/skills/
-~/.gemini/              exists → Gemini CLI          → ~/.gemini/skills/
-.kiro/                  exists → Kiro                → .kiro/skills/ (project)
-.trae/                  exists → Trae                → .trae/rules/ + format adapt (plain .md)
-.roo/                   exists → Roo Code            → .roo/skills/
-~/.config/goose/        exists → Goose               → ~/.config/goose/skills/
-~/.config/opencode/     exists → OpenCode            → ~/.config/opencode/skills/
-~/.agents/              exists → Universal           → ~/.agents/skills/
-```
-
-After installing to the native path, **also create a symlink at `~/.agents/skills/`** so the skill is discoverable by tools reading the universal path (Codex CLI, Gemini CLI, OpenCode, Goose, Cline, Roo Code).
-
-**Format adaptation**: For Tier 2 platforms (Cursor, Windsurf, Trae), also generate the native format alongside SKILL.md:
-- **Cursor**: Generate `.mdc` file with `alwaysApply: true` and description from frontmatter
-- **Windsurf**: Generate plain `.md` rule, respect 6,000 char per-file limit
-- **Trae**: Generate plain `.md` rule with `type: Always` frontmatter
-
-**Install action**: Copy or symlink the generated skill directory into the platform's native skill path:
-
-```bash
-# Claude Code (user-level):
-cp -R ./sales-report-skill ~/.claude/skills/sales-report-skill
-
-# GitHub Copilot (user-level — Copilot's own path, not Claude's):
-cp -R ./sales-report-skill ~/.copilot/skills/sales-report-skill
-
-# GitHub Copilot (project-level):
-cp -R ./sales-report-skill .github/skills/sales-report-skill
-
-# Cursor (project-level ONLY — no global path exists):
-cp -R ./sales-report-skill .cursor/skills/sales-report-skill
-
-# Gemini CLI (native path):
-cp -R ./sales-report-skill ~/.gemini/skills/sales-report-skill
-```
-
-**After installing, tell the user exactly what to do next:**
-
-```
-Skill installed successfully.
-
-To use it, open a new session and type:
-
-  /sales-report-skill Generate the weekly report for the West region
-
-The skill is installed at: ~/.claude/skills/sales-report-skill
-```
-
-If you cannot detect the platform, show the user how to run the install manually:
-
-```
-I couldn't auto-detect your platform. To install via the unified CLI:
-
-  skillctl install sales-report-skill
-
-Or specify your platform:
-
-  skillctl install sales-report-skill --platform cursor
-
-Or install to all detected platforms at once:
-
-  skillctl install sales-report-skill --all
-```
-
-Installation is handled by `skillctl install <name>`: it auto-detects the
-platform, resolves the platform-specific skills path from the canonical
-registry, copies the skill, and prints post-install activation instructions.
-It is the fallback for users who receive the skill as a package (not created
-in their current session).
-
-The generated skill must be a self-contained package that anyone can install
-with `git clone` + `skillctl install <name>` and invoke with `/skill-name` —
-the same way agent-skill-creator itself works.
-
-### Share With Your Team (Post-Creation)
-
-After installing the skill locally, always ask:
-
-```
-Want to share this skill with your team so they can install it too?
-```
-
-Corporate users don't know what a registry is, how to `git push`, or what `skill_registry.py` does. They just want their colleague to have the same skill. You handle everything.
-
-**If the user says yes, do all of this automatically:**
-
-1. **Initialize a git repo** inside the generated skill directory:
-   ```bash
-   cd ./sales-report-skill
-   git init
-   git add -A
-   git commit -m "feat: Initial skill — sales-report-skill"
-   ```
-
-2. **Detect the team's git platform** and create a remote repo:
-
-   Check which CLI tools are available and authenticated:
-
-   ```
-   gh auth status    → GitHub (github.com or GitHub Enterprise)
-   glab auth status  → GitLab (gitlab.com or self-hosted)
-   ```
-
-   **If `gh` is available (GitHub):**
-   ```bash
-   gh repo create sales-report-skill --public --source=. --push
-   gh repo edit --add-topic agent-skill
-   ```
-
-   **If `glab` is available (GitLab):**
-   ```bash
-   glab repo create sales-report-skill --public --defaultBranch main
-   git remote add origin <returned-url>
-   git push -u origin main
-   glab repo edit --topic agent-skill
-   ```
-
-   The `agent-skill` topic makes skills discoverable across the org. Teams can search `topic:agent-skill` on GitHub or filter by topic on GitLab to find all shared skills.
-
-   **If both are available**, check the existing git remotes in the current project to infer which platform the team uses. If the current project's `origin` points to `gitlab.com` or a GitLab instance, use `glab`. Otherwise default to `gh`.
-
-   **If neither is available**, tell the user:
-   ```
-   I can't create the repo automatically. To share this skill:
-   1. Create a new repo on GitHub or GitLab called "sales-report-skill"
-   2. Then run:
-      git remote add origin <repo-url>
-      git push -u origin main
-   3. Share the git clone link with your team
-   ```
-
-3. **Give the user a shareable one-liner** they can send to colleagues:
-   ```
-   Shared! Your colleagues can install it by pasting this in their terminal:
-
-     git clone <repo-url> ~/.claude/skills/sales-report-skill
-
-   Or for VS Code Copilot:
-
-     git clone <repo-url> .github/skills/sales-report-skill
-
-   Or for Cursor:
-
-     git clone <repo-url> .cursor/rules/sales-report-skill
-   ```
-
-   Use the actual repo URL from step 2 (GitHub or GitLab). The install pattern is identical regardless of git platform.
-
-4. **Optionally publish to the team registry** (if the agent-skill-creator registry is available):
-   ```bash
-   python3 scripts/skill_registry.py publish ./sales-report-skill/ --tags <auto-generated-tags>
-   ```
-
-The goal: the user who created the skill sends a one-liner to their colleague on Slack or Teams. The colleague pastes it. Done. No registry knowledge, no `skill_registry.py`, no understanding of the spec. Just `git clone` and it works — whether the team uses GitHub or GitLab.
-
-**If the user says no**, that's fine — the skill is already installed locally and working. They can always share later.
-
-
-### Publish to GitHub Skill Store (New)
-
-After the skill is created and verified, it can be published to the global skill
-registry on GitHub for anyone to discover and install:
-
-```bash
-# Dry-run preflight check
-python3 scripts/skillctl/__main__.py publish <skill-dir> --dry-run
-
-# Full publish (requires GITHUB_TOKEN or GH_TOKEN)
-python3 scripts/skillctl/__main__.py publish <skill-dir> --org agent-skills
-```
-
-If `GITHUB_TOKEN` is set, the factory can prompt after creation:
-
-```
-Publish this skill to GitHub? (y/N)
-```
-
-On success:
-
-```
-✓ Published to agent-skills/{name} (v{version})
-Try: python3 scripts/skillctl/__main__.py install {name}
-```
-
-The publish flow:
-1. **Preflight** — validates SKILL.md, checks pipeline output compliance
-2. **Repo creation** — creates a public GitHub repo under the org
-3. **Push** — pushes skill content with semver tag (v{major}.{minor}.{patch})
-4. **Index registration** — adds the skill entry to the central `agent-skills/index` registry
-
-Users anywhere can then install with:
-
-```bash
-python3 scripts/skillctl/__main__.py install {skill-name}
-```
-
-### Set Up a Team Skill Registry
-
-When a user mentions a team, organization, or colleagues — or when they ask about sharing skills at scale — offer to create a **team skill registry**. This is a shared git repo that acts as the central catalog where all team members publish and install skills.
-
-This is the model for AI consultants enabling corporate teams:
-1. The consultant teaches each team member to install and use agent-skill-creator
-2. The consultant creates one shared `{team}-skills-registry` repo on GitHub/GitLab
-3. Each team member creates skills from their own workflows using `/agent-skill-creator`
-4. Each member publishes to the shared registry
-5. Other members browse, search, and install from that same registry
-
-The consultant delivers **knowledge and infrastructure**, not skills. The team creates the skills themselves — they know their workflows better than anyone.
-
-```
-Want me to set up a shared skill registry for your team? It's a single
-repo where everyone publishes their skills and anyone can browse and
-install them — like an internal app store for agent skills.
-```
-
-**If the user says yes, do all of this automatically:**
-
-1. **Ask for the team or org name** to use in the registry name (e.g., "engineering", "acme-corp"):
-
-2. **Initialize the registry**:
-   ```bash
-   mkdir -p ~/{team}-skills-registry
-   python3 scripts/skill_registry.py init --registry ~/{team}-skills-registry --name "{Team Name} Skills"
-   ```
-
-3. **Create a remote repo** (same GitHub/GitLab detection as skill sharing):
-   ```bash
-   cd ~/{team}-skills-registry
-   git init && git add -A && git commit -m "feat: Initialize {team} skill registry"
-
-   # GitHub
-   gh repo create {team}-skills-registry --private --source=. --push
-   gh repo edit --add-topic agent-skill-registry
-
-   # Or GitLab
-   glab repo create {team}-skills-registry --private --defaultBranch main
-   git remote add origin <url> && git push -u origin main
-   ```
-
-   The registry repo should be **private** by default (internal to the org). The team admin controls who has access via GitHub/GitLab repo permissions.
-
-4. **If a skill was just created**, publish it as the first entry:
-   ```bash
-   python3 scripts/skill_registry.py publish ./sales-report-skill/ --registry ~/{team}-skills-registry --tags sales,reports
-   cd ~/{team}-skills-registry && git add -A && git commit -m "feat: Add sales-report-skill" && git push
-   ```
-
-5. **Give the user a team onboarding guide** they can share on Slack, Teams, or email:
-
-   ```
-   Registry is live! Share this with your team:
-
-   ──────────────────────────────────────────────
-   TEAM SKILL REGISTRY — Quick Start
-   ──────────────────────────────────────────────
-
-   STEP 1: Install agent-skill-creator (one time)
-
-     git clone https://github.com/FrancyJGLisboa/agent-skill-creator.git ~/.claude/skills/agent-skill-creator
-
-     For VS Code Copilot:
-       git clone https://github.com/FrancyJGLisboa/agent-skill-creator.git .github/skills/agent-skill-creator
-
-     For Cursor:
-       git clone https://github.com/FrancyJGLisboa/agent-skill-creator.git .cursor/rules/agent-skill-creator
-
-   STEP 2: Clone the team registry (one time)
-
-     git clone <registry-repo-url> ~/{team}-skills-registry
-
-   STEP 3: Create a skill from any workflow you do repeatedly
-
-     Open your IDE chat and type:
-       /agent-skill-creator Every week I pull sales data and generate a report
-
-   STEP 4: Publish your skill to the team registry
-
-     python3 scripts/skill_registry.py publish ./my-skill/ --registry ~/{team}-skills-registry --tags tag1,tag2
-     cd ~/{team}-skills-registry && git add -A && git commit -m "Add my-skill" && git push
-
-   STEP 5: Install a colleague's skill
-
-     git pull (inside ~/{team}-skills-registry to get latest)
-     python3 scripts/skill_registry.py list --registry ~/{team}-skills-registry
-     python3 scripts/skill_registry.py search "sales" --registry ~/{team}-skills-registry
-     python3 scripts/skill_registry.py install sales-report-skill --registry ~/{team}-skills-registry
-
-   ──────────────────────────────────────────────
-   ```
-
-**When to offer registry setup:**
-- User mentions "team", "organization", "department", "colleagues", "company"
-- User asks about sharing or distributing skills at scale
-- User is an AI consultant or admin setting up infrastructure for others
-
-**When NOT to offer:**
-- User is creating a single personal skill
-- A registry already exists (check for `~/team-skills-registry` or similar)
-
-The registry is a git repo. Version history, access control, and review workflows come free from GitHub/GitLab. No servers, no databases, no new tools.
-
-See `references/pipeline-phases.md` for detailed Phase 5 instructions.
-
-### Update Check
-
-When loading this skill, silently check if the local copy is behind the remote. Run:
-
-```bash
-cd <skill-install-dir> && git rev-parse HEAD 2>/dev/null
-cd <skill-install-dir> && git ls-remote origin HEAD 2>/dev/null | cut -f1
-```
-
-If both commands succeed and the hashes differ, mention to the user:
-"A newer version of agent-skill-creator is available. Run `git pull` in <path> to update."
-
-Do not block or interrupt for this. If either command fails (no git, no network, not a git repo), skip silently.
-
-### Generated SKILL.md Format
-
-Every generated skill's SKILL.md must follow this structure:
+Every generated skill's SKILL.md:
 
 ```yaml
 ---
-name: skill-name-skill      # 1-64 chars, must end with -skill, matches directory
-description: >-             # 1-1024 chars, activation keywords
-  Description here...
-license: MIT                # or appropriate license
+name: skill-name-skill      # 1-64 chars, ends with -skill
+description: >-             # 1-1024 chars, activation keywords. MUST start with "A {category}"
+license: MIT
 metadata:
   author: Author Name
   version: 1.0.0
-  created: YYYY-MM-DD                # When the skill was created
-  last_reviewed: YYYY-MM-DD          # Last time content was verified current
-  review_interval_days: 90           # Days between required reviews
-  dependencies:                      # External URLs the skill depends on (optional)
-    - url: https://api.example.com/v1
-      name: Example API
-      type: api
-  schema_expectations:               # Expected API response shapes (optional)
-    - url: https://api.example.com/v1/data
-      method: GET
-      expected_keys:
-        - id
-        - name
-        - value
+  created: YYYY-MM-DD
+  last_reviewed: YYYY-MM-DD
+  review_interval_days: 90
+  activation: /skill-name   # namespace enforcement
 ---
 # /skill-name — Short Description
 
-You are an expert [domain]. Your job is to [what the skill does].
+## Quick Profile
+- **Category**: ...
+- **Input**: ...
+- **Output**: ...
+- **When to use**: ...
+- **When not**: ...
 
-## Trigger
+## How to run it
+python3 scripts/pipeline.py --input <file> --output <dir>
 
-User invokes `/skill-name` followed by their input:
-
-[examples of invocation]
-
-## [Rest of skill body — workflow, instructions, references]
+## Runtime Contract
+- Only run the command above. scripts/ are implementation details, do not read by default.
 ```
 
-The SKILL.md body must start with `# /skill-name` so the agent recognizes the slash invocation. The body must be <500 lines. If detailed content would exceed 500 lines, merge it into a single `references/guide.md` — do not generate multiple reference files.
+SKILL.md body < 500 lines. If detail exceeds 500 lines, merge into a single `references/guide.md`.
 
-**Critical**: Every skill the factory produces must be invocable with `/skill-name` on any platform. The generated skill is software that gets installed and used — not a document to read.
-
-## Architecture Decision
+### Architecture Decision
 
 | Factor | Simple Skill | Complex Suite |
 |--------|-------------|---------------|
 | Workflows | 1-2 | 3+ distinct |
 | Code size | <1000 lines | >2000 lines |
-| Maintenance | Single developer | Team |
-| Structure | Single SKILL.md | Multiple component SKILL.md files |
+| Structure | Single SKILL.md | Multiple component SKILL.md files in components/ |
 
-See `references/architecture-guide.md` for detailed decision framework.
+**Anti-example**: Shift scheduling, reconciliation, and single-pipeline tasks are simple skills even if they have
+multiple processing steps — as long as they share one input→output pipeline, they are NOT suites.
 
-## Cross-Platform Support
-
-Generated skills work across 17 tools in 3 tiers. Every generated skill outputs both **SKILL.md** (skill definition, ~15 tools) and **AGENTS.md** (instruction file, ~15 tools) to maximize reach.
-
-## How to run it
-Generate a complete report (includes clean + report):
-    python3 scripts/pipeline.py --report
-
-
-In universal mode, the generated skill is platform-agnostic — it has no
-platform-specific code or artifacts. Every platform accesses it the same way:
-`python3 scripts/pipeline.py --report`. Platform-specific installation is handled by
-`skillctl` outside the generated package.
-
-### Tier 1 — Native SKILL.md (reads directly, no conversion)
-
-| Platform | Native Global Path | Native Project Path | Command |
-|----------|-------------------|--------------------|---------|
-| Claude Code | `~/.claude/skills/` | `.claude/skills/` | `skillctl install <name>` |
-| GitHub Copilot | `~/.copilot/skills/` | `.github/skills/` | `skillctl install <name> --platform copilot` |
-| Codex CLI | `~/.agents/skills/` | `.agents/skills/` | `skillctl install <name> --platform codex` |
-| Gemini CLI | `~/.gemini/skills/` | `.gemini/skills/` | `skillctl install <name> --platform gemini` |
-| Kiro | `~/.kiro/skills/` | `.kiro/skills/` | `skillctl install <name> --platform kiro` |
-| Goose | `~/.config/goose/skills/` | — | `skillctl install <name> --platform goose` |
-| OpenCode | `~/.config/opencode/skills/` | `.opencode/skills/` | `skillctl install <name> --platform opencode` |
-| Cline | `~/.cline/skills/` | `.clinerules/skills/` | `skillctl install <name> --platform cline` |
-| Roo Code | `~/.roo/skills/` | `.roo/skills/` | `skillctl install <name> --platform roo-code` |
-| Kilo Code | `~/.kilocode/skills/` | `.kilocode/skills/` | `skillctl install <name> --platform kilo-code` |
-| Factory Droid | `~/.factory/skills/` | `.factory/skills/` | `skillctl install <name> --platform factory` |
-| Antigravity | — | `.agent/skills/` | `skillctl install <name> --platform antigravity` |
-
-### Tier 2 — Auto-adapted (installer converts SKILL.md to native format)
-
-| Platform | Native Format | Adaptation | Install Path | Command |
-|----------|--------------|------------|-------------|---------|
-| Cursor | `.mdc` | Generates `.mdc` with `alwaysApply`/`globs` frontmatter | `.cursor/skills/` (project only, no global) | `skillctl install <name> --platform cursor` |
-| Windsurf | `.md` rules | Generates plain `.md` rule (6K char limit per file) | `.windsurf/rules/` (project) or `~/.codeium/windsurf/` (global) | `skillctl install <name> --platform windsurf` |
-| Trae | `.md` rules | Generates plain `.md` with `type:` frontmatter | `.trae/rules/` | `skillctl install <name> --platform trae` |
-| Junie | `guidelines.md` | Extracts body as plain markdown | `.junie/skills/` | `skillctl install <name> --platform junie` |
-
-### Tier 3 — Manual integration
-
-| Platform | Config File | Instructions |
-|----------|------------|-------------|
-| Zed | `.rules` | Copy SKILL.md body into `.rules` file |
-| Augment | `.augment/rules/` | Copy as `.md` with `type: Always` frontmatter |
-| Aider | `CONVENTIONS.md` | Copy SKILL.md body into CONVENTIONS.md |
-| Continue.dev | `.continue/rules/` | Copy as `.md` with Continue frontmatter |
-
-### Companion AGENTS.md
-
-Every generated skill also outputs an `AGENTS.md` file alongside SKILL.md. This extends reach to tools that prioritize AGENTS.md over SKILL.md (Codex CLI, Augment, Continue.dev, Zed, and others). The AGENTS.md contains the skill's purpose, activation triggers, and usage instructions in the AAIF-governed format.
-
-See `references/cross-platform-guide.md` for full platform details.
-
-## Validation and Security
-
-After generating a skill, run:
-
-- **Spec validation**: Checks frontmatter, naming, structure, line count
-- **Security scan**: Checks for hardcoded API keys, .env files, dangerous code patterns, instruction-body prompt injection (override/concealment/exfiltration phrases, hidden unicode, encoded blobs), and undeclared network endpoints in scripts
+## How to Run
 
 ```bash
-# Validate a skill
-python3 scripts/validate.py path/to/skill/
-
-# Security scan
-python3 scripts/security_scan.py path/to/skill/
+python3 scripts/pipeline.py --report              # generates complete report
+python3 scripts/validate.py path/to/skill/        # validate a skill
+python3 scripts/security_scan.py path/to/skill/   # security scan
+python3 scripts/validate.py path/to/skill/ --json # structured output
 ```
-
-## Export System
-
-Package skills for distribution:
-
-```bash
-# Export for all platforms
-python3 scripts/export_utils.py path/to/skill/
-
-# Desktop/Web package only
-python3 scripts/export_utils.py path/to/skill/ --variant desktop
-
-# API package only
-python3 scripts/export_utils.py path/to/skill/ --variant api
-```
-
-See `references/export-guide.md` for full export documentation.
-
-## Template-Based Creation
-
-Pre-built templates for common domains:
-
-- **Financial Analysis**: Alpha Vantage/Yahoo Finance, fundamental + technical analysis
-- **Climate Analysis**: Open-Meteo/NOAA, anomalies + trends + seasonal patterns
-- **E-commerce Analytics**: Google Analytics/Stripe/Shopify, traffic + revenue + cohorts
-
-See `references/templates-guide.md` for template details and customization.
-
-## Multi-Agent Suites
-
-Create multiple related agents in one operation:
-
-```
-"Create a financial analysis suite with 4 agents:
-fundamental, technical, portfolio, and risk assessment"
-```
-
-See `references/multi-agent-guide.md` for suite creation docs.
-
-## Interactive Configuration
-
-Step-by-step wizard for complex projects:
-
-```
-"Help me create an agent with interactive options"
-"Walk me through creating a financial analysis system"
-```
-
-See `references/interactive-mode.md` for wizard documentation.
-
-## Learning & Evolution
-
-Every generated skill ships its own learning loop — the eval harness plus a
-self-maintenance command:
-
-- `run_evals.py --rollout` runs the skill on its golden inputs and scores real output
-- `--promote` captures first-green baselines; later runs are compared against them (regression gate)
-- `--judge` grades `llm-judge` criteria with a judge pinned in the spec (model + temperature); a known-bad canary must fail every criterion or the judge run is invalid
-- A `"split": "test"` holdout case is scored only at release, never fed to an optimization loop
-- `evolve.py` runs staleness/dependency/drift checks + the rollout in one command; every failure appends its raw evidence to the skill's `EVOLUTION.md`, which feeds a regenerate pass
-
-`references/agentdb-integration.md` is a design sketch for a future episodic
-learning layer — it is NOT implemented; never present it as current behavior.
 
 ## Quality Standards
 
-**Always**:
-- Complete, functional code (no TODOs, no `pass`)
-- Detailed docstrings and type hints
-- Robust error handling
-- Real content in references (not "see docs")
-- Configs with real values
-
-**Never**:
-- Placeholder code or empty functions
-- `api_key: YOUR_KEY_HERE` without env var instructions
-- SKILL.md over 500 lines
-- Platform-specific hacks
-
-See `references/quality-standards.md` for complete standards.
+**Always**: complete code (no TODOs), docstrings, error handling, real content in references, configs with real values.
+**Never**: placeholder code, `api_key: YOUR_KEY_HERE` without env var instructions, SKILL.md over 500 lines, platform hacks.
 
 ## Naming Convention
 
-Every generated skill name must end with `-skill`. This suffix makes skills instantly discoverable across GitHub and GitLab organizations — teams can search `*-skill` and find every skill in their org.
+Generated skill names MUST end with `-skill`: `{domain}-{objective}-skill`. 1-64 chars, lowercase + hyphens.
+Suites: `{domain}-suite` (not suffixed with `-skill`).
 
-**Format**: `{domain}-{objective}-skill`
+## Learning & Evolution
 
-**Rules**:
-- Must end with `-skill`
-- 1-64 characters total, lowercase letters, numbers, and hyphens
-- Must match parent directory name
-- Must not contain consecutive hyphens
+Every generated skill ships `run_evals.py` (rollout + promote + judge) and `evolve.py` (staleness/dependency/drift checks).
+Failures append to `EVOLUTION.md` (generated post-delivery, never in initial package).
 
-**Examples**: `sales-report-skill`, `csv-cleaner-skill`, `deploy-checklist-skill`, `stock-analyzer-skill`
+## Update Check
 
-**Suites**: `{domain}-suite` (suites are not suffixed with `-skill` — they contain skills)
+Silently check if local copy is behind remote. If behind: "A newer version is available. Run `git pull`."
 
-The `-skill` suffix also serves as a signal to the agent: when it sees a repo or directory ending in `-skill`, it knows this is installable, invocable software — not documentation or a regular project.
+**Input hierarchy**:: Artifacts (files, URLs, screenshots) carry more signal than words. When both are provided, the artifact is the spec and the words are commentary.
 
-## Reference Files
+**Discovery before building**:: Before constructing anything, check: Is this data already in a database the user has access to? Has a colleague built a skill for this? Is there an API that makes a scraping approach unnecessary? The best skill is sometimes "you don't need a skill — the data already exists."
 
-| File | Contents | When to read |
-|------|----------|-------------|
-| `references/pipeline-phases.md` | Detailed Phase 1-5 implementation instructions, checklists, templates | Always — in every generation session |
-| `references/quality-standards.md` | Code quality patterns, testing strategy, dependency management | Always — in every generation session |
-| `references/architecture-guide.md` | §1-2: Decision framework + simple skill structure. §3+: Sizing patterns, refactoring, suites | §1-2 always. §3+ only when skill is complex (3+ workflows) or a refactoring |
-| `references/description-guide.md` | Quick Profile template, category taxonomy | During Phase 4 detection |
-| `references/phase4-detection.md` | Detection process & keyword design | During Phase 4 detection |
-| `references/phase2-eval-assessment.md` | Eval spec design, golden-case strategy, boundary templates | During Phase 2 design |
-| `references/phase5-orchestration.md` | Pipeline orchestration pattern | During Phase 5 implementation |
-| `references/spec-ideation.md` | Phase 0: turn vague input into a buildable spec | Only when input is too vague to start Phase 1 |
-| `references/mcp-audit.md` | MCP server → capability map | Only when --mcp-audit is used |
-| `references/cross-platform-guide.md` | Platform compatibility matrix | Only when skill targets Tier 2/3 platforms |
-| `references/universal-standard.md` | Universal skill output standard | Only when --universal is active |
+**Hypothesis, not questionnaire**:: Never present 5 questions upfront. Present: "From your files, I understand you do X → Y → Z weekly. The output goes to [person]. Right?" The human confirms or corrects with one word.
+
+### Override Flags
+- `--no-artifact`: skip artifact assessment
+- `--artifact <name>`: use named template (line-chart, bar-chart, kpi-cards, data-table)
+- `--no-eval`: skip eval generation
+- `--universal`: generate platform-agnostic skill
+
+## Domain Templates
+
+Pre-built for common domains: Financial Analysis, Climate Analysis, E-commerce Analytics.
+See `references/templates-guide.md`. Also supports multi-agent suites and interactive wizard mode.
+See `references/multi-agent-guide.md` and `references/interactive-mode.md`.
+
+## Reference Files — Load On Demand
+
+| File | Contents | Load only when |
+|------|----------|----------------|
+| `references/pipeline-phases.md` | Detailed Phase 1-5 steps, checklists, templates, eval boundary templates, harness contract | **Always** — every generation session |
+| `references/quality-standards.md` | Code quality patterns, testing strategy | **Always** — every generation session |
+| `references/architecture-guide.md` | §3+: Sizing patterns, performance, refactoring, versioning | Only for complex suites (3+ workflows) or refactoring |
+| `references/description-guide.md` | Quick Profile template, category taxonomy | Phase 4 only |
+| `references/phase2-eval-assessment.md` | Eval spec design, golden-case strategy, boundary templates | Phase 2 only |
+| `references/phase2-artifact-assessment.md` | Artifact opportunity detection and template selection | Phase 2 (unless --no-artifact) |
+| `references/phase5-orchestration.md` | Pipeline orchestration pattern | Phase 5 only |
+| `references/phase4-detection.md` | Detection process details, keyword design patterns | Phase 4 only |
 | `references/export-guide.md` | Export for Desktop/Web/API | Only when exporting skill |
-| `references/multi-agent-guide.md` | Suite creation, orchestration | Only when skill requires 3+ independent components |
-| `references/interactive-mode.md` | Interactive wizard | Only in interactive (wizard) mode |
-| `references/templates-guide.md` | Template-based creation | Only when using templates |
-| `references/agentdb-integration.md` | Future design sketch | Skip — not implemented |
+| `references/templates-guide.md` | Template-based creation for common domains | Only when using templates |
+| `references/multi-agent-guide.md` | Multi-agent suite creation and orchestration | Only for complex suites (3+ workflows) |
+| `references/interactive-mode.md` | Interactive wizard for complex projects | Only in interactive (wizard) mode |
+
+| `references/spec-ideation.md` | Phase 0: turn vague input into buildable spec | Only when input is too vague for Phase 1 |
+| `references/mcp-audit.md` | MCP server → capability map | Only when --mcp-audit is used |
+| `references/cross-platform-guide.md` | 17-platform compatibility matrix | Only when targeting Tier 2/3 platforms |
+| `references/universal-standard.md` | Universal skill output standard | Only when --universal is active |
