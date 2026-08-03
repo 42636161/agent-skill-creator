@@ -299,8 +299,49 @@ def validate_skill(skill_path: str) -> dict:
 
         # --- Runtime Contract check ---
         if "## Runtime Contract" not in body:
+            errors.append(
+                "SKILL.md missing ## Runtime Contract section (5 mandatory fields required: "
+                "Only run, Do not read scripts, Output, Primary anchor, stdout)"
+            )
+        else:
+            # Check for 5 mandatory fields
+            rt_fields = {
+                "Only run": False,
+                "do-not-read": False,
+                "Output:": False,
+                "Primary anchor": False,
+                "stdout:": False,
+            }
+            rt_match = re.search(r"## Runtime Contract\s*\n(.*?)(?=\n### |\n## |\Z)", body, re.DOTALL)
+            if rt_match:
+                rt_text = rt_match.group(1)
+                for field in rt_fields:
+                    if field in rt_text:
+                        rt_fields[field] = True
+                # Fuzzy-check "Do not read scripts" — accept legacy "do not read by default" phrasing
+                if "do not read" in rt_text.lower():
+                    rt_fields["do-not-read"] = True
+                missing = [k for k, v in rt_fields.items() if not v]
+                if missing:
+                    warnings.append(
+                        f"Runtime Contract missing fields: {', '.join(missing)}. "
+                        "All 5 mandatory fields required (Only run, Do not read scripts, Output:, Primary anchor:, stdout:)."
+                    )
+            else:
+                warnings.append("Runtime Contract could not be parsed")
+
+        # --- Runtime Contract: Presenting Results sub-section check ---
+        if body and "### Presenting Results" not in body:
             warnings.append(
-                "SKILL.md missing ## Runtime Contract section — agents may read scripts/ unnecessarily when no single-command contract is stated."
+                "SKILL.md missing ### Presenting Results sub-section under ## Runtime Contract. "
+                "This guides agents on how to organize response output."
+            )
+
+        # --- Tuning section check ---
+        if body and "## Tuning" not in body:
+            warnings.append(
+                "SKILL.md missing ## Tuning section. "
+                "Required to expose configurable parameters in user-facing language."
             )
 
         # --- README.md presence check ---

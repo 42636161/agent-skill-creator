@@ -1,31 +1,89 @@
 
+
+## v0.8.0 — SKILL.md / AGENTS.md 模板升级（2026-08-03）
+
+### 变更
+
+- **触发词生成规则升级（A-a-1）** — Phase 4 提示词从「功能术语列表」升级为「场景驱动 + 多语言」。
+  覆盖三类说话方式（功能请求/问题描述/半信息态），禁止裸写技术缩写，中文场景以中文为第一语言。
+  pipeline-phases.md Phase 4 新增 Trigger Generation 段（4 条规则 + 示例）；phase4-detection.md 新增 Step 0。
+
+- **Runtime Contract 重构（A-b-1, A-b-2, A-a-4）** — 合并 Presenting Results 子段 + 新增 Tuning 章节 + 5 字段标准化。
+  Runtime Contract 从自由格式升级为 5 强制字段（Only run / Do not read scripts / Output / Primary anchor / stdout）。
+  `### Presenting Results` 引导 agent 如何组织回答（headline → breakdown → findings → follow-up）。
+  `## Tuning` 章节把 argparse 参数翻译为用户语言。
+
+- **pipeline_template.py `_build_diagnostics()`（A-a-2）** — `_match_columns()` 返回类型改为
+  `(mapping, unmatched_list)`，新增结构化诊疗函数。Phase 5 新增 Diagnostics Encoding Rule 强制 pipeline
+  在列名不匹配时输出 `_diagnostics` JSON（不再静默空值）。
+
+- **validate.py 检查维度扩充** — Runtime Contract 检查升级为 5 字段强制校验
+  （含 legacy "do not read" 模糊匹配）；新增 `### Presenting Results` + `## Tuning` 缺失 warning。
+
+### 验证
+
+- 12 个零售技能全部修复至 v0.8.0 标准。核心三项检查从 12/12 缺失 → 12/12 通过。
+- validate.py 和 pipeline_template.py 均通过 py_compile。
+
+### 变动文件
+
+```
+references/pipeline-phases.md           — Phase 4 Trigger Generation + Phase 5 RC/Tuning/Presenting/Diagnostics + Checklist
+references/phase4-detection.md          — 新增 Step 0 Trigger Generation
+SKILL.md                                — Phase 章节摘要 + Generated Skill Format 模板
+scripts/pipeline_template.py            — _match_columns() 返回类型 + _build_diagnostics()
+scripts/validate.py                     — RC 5字段 + Presenting Results + Tuning 检查
+tests/retail_skills/outputs/*/SKILL.md  — 12 技能升级至 v0.8.0
+```
+
 ## Planned / Backlog
 
 以下项目来源于 2026-07-29 用户质量评估文档，在 12 个零售技能验证中确认为长期改进方向。
-按优先级排序：
+v0.8.0 交付后更新了可行性和建议顺序。
 
-### B-1: 工具与技能的设计边界
-- 工厂管线需区分"生成工具"和"生成技能"两种模式。
-- 技能模式产出领域知识 + 判断规则 + 对话模式，而非仅 CLI 手册。
-- 评估参考：docs/superpowers/specs/2026-07-29-user-quality-evaluation-design.md
+### 短期可启动（低风险、独立性强）
 
-### A-b-3: 预览确认模式（--dry-run）
-- 流水线需支持先预览变更计划再执行。
-
-### A-b-4: 历史对比（--compare）
-- 支持传入基线报告，产出对比维度（delta, delta_pct）。
-
-### A-b-5: 输入格式自动检测
-- 入口处自动检测 XLSX/CSV/TSV 并转换，减少用户格式焦虑。
-
-### A-b-6: 功能发现提示
-- Agent 回答末尾应主动提及一项相关但未请求的能力。
-
-### A-a-3: 激活透明度
+**A-a-3: 激活透明度 ✅ 推荐优先**
 - 技能激活时 Agent 应声明"正在运行 xxx-skill"。
+- 实施：在 AGENTS.md 或 SKILL.md Runtime Contract 中增加一句激活声明规则即可。1 文件改动。
+- 现状：v0.8.0 的 Presenting Results 已定义了 agent 的输出行为，激活透明是其自然前置。
 
-### B-3: 领域逻辑与领域数据分离
+**A-b-5: 输入格式自动检测 ✅ 推荐优先**
+- 入口处自动检测 XLSX/CSV/TSV 并转换。
+- 实施：在 `pipeline_template.py` 的 `_detect_encoding()` 旁边新增 `_detect_format()`，Phase 5 编码规则同步。1-2 文件改动。
+- 现状：pipeline_template.py 已有编码自动检测（utf-8/gbk/latin-1），格式检测是同类扩展。
+
+**A-b-6: 功能发现提示**
+- Agent 回答末尾主动提及一项相关但未请求的能力。
+- 实施：在 Presenting Results 的第 4 条（follow-up question）中增加能力暗示规则。0 模板改动。
+- 现状：v0.8.0 Presenting Results 已有 "offer one natural follow-up"，只需改为 "offer one follow-up that reveals an unrequested capability"。
+
+### 中期需设计（复杂度中等、影响面跨 Phase）
+
+**A-b-3: 预览确认模式（--dry-run）**
+- 流水线需支持先预览变更计划再执行。
+- 实施：在 pipeline_template.py 新增 `--dry-run` 入口，Phase 5 编码规则需覆盖 preview 步骤生成。需要 validate-compute-report 模式增加 preview 阶段。
+- 现状：当前流水线是一次性执行。预览模式需要流水线在 validate 和 compute 之间插入一个「展示清洗计划」的可中断点。
+
+**A-b-4: 历史对比（--compare）**
+- 支持传入基线报告，产出对比维度（delta, delta_pct）。
+- 实施：在 `compute()` 函数模板中新增对比逻辑，在 generate_report 中追加对比表。Phase 5 + pipeline_template.py。
+- 现状：完全独立功能，不与其他变更冲突。
+
+**B-3: 领域逻辑与领域数据分离**
 - 列名别名、清洗阈值等知识应以数据文件存在，可独立审查和扩展。
+- 实施：需新增 `assets/domain_knowledge.json` 的数据模板 + Phase 2/5 生成规则。同时
+  `_match_columns()` 改为从数据文件读取别名映射而非硬编码。影响 pipeline_template.py + Phase 2 + Phase 5。
+- 现状：v0.8.0 的 `_build_diagnostics()` 和 `_match_columns()` 为数据分离提供了好的接缝——别名映射天然应放在数据层。
+
+### 长期需设计讨论（复杂度高、需形态讨论）
+
+**B-1: 工具与技能的设计边界**
+- 工厂管线需区分"生成工具"和"生成技能"两种模式。技能模式产出领域知识 + 判断规则 + 对话模式。
+- 实施：需在 Phase 2 或 Phase 3 新增模式选择分支，两种模式的 SKILL.md 模板不同。
+  涉及 SKILL.md + pipeline-phases.md + phase4-detection.md，可能需要新增 `references/skill-vs-tool-guide.md`。
+- 现状：这个问题在 v0.2.0（universal mode）中已讨论过但未落地到默认模式。v0.8.0 的 Presenting Results + Tuning
+  章节已经为「技能模式」提供了模板基础，但还缺少显式的模式切换机制。建议先做完短期和中期的其他项，积累更多技能/工具的二分类样本再落地。
 
 ## v0.7.1 — Phase 5 代码质量模板（2026-08-03）
 

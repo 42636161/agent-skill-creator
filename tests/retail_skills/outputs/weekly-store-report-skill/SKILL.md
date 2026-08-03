@@ -6,12 +6,16 @@ description: >-
   reports, store KPI dashboards, or executive briefs from CSV exports.
   Triggers on: 门店周报, 每周报告, weekly store report, 多格式报表, 经营周报.
 license: MIT
+activation: /weekly-store-report
 metadata:
   author: agent-skill-creator
   version: 1.0.0
   created: 2026-07-31
   last_reviewed: 2026-07-31
   review_interval_days: 90
+  provenance:
+    maintainer: agent-skill-creator
+    source_references: []
 ---
 # /weekly-store-report — 多格式门店周报
 
@@ -38,10 +42,29 @@ python3 scripts/pipeline.py \
 
 ## Runtime Contract
 
-- **正常使用**: 只运行上述命令。`scripts/` 是实现细节，默认不读。
+- **正常使用**: 只运行上述命令。`scripts/` 是实现细节，默认不读 (do not read by default).
 - 输出位于 `--output` 目录：`report_store_manager.md`、`report_region_manager.md`、`report_executive.md`、`report.json`
 - `report_executive.md` 以「本周结论」开头，为规则生成可复现摘要，不依赖 LLM。
 - stdout 打印人读摘要，非 JSON 原始数据。
+- Output: report_store_manager.md + report_region_manager.md + report_executive.md + report.json in --output directory
+- Primary anchor: report_executive.md — one-page executive summary for headquarters
+- stdout: Human-readable summary with week period, total sales, and key metrics
+
+### Presenting Results
+
+After running the pipeline, ALWAYS present results to the user as follows:
+
+1. Lead with the headline. Read the primary summary field and display
+   a one-line conclusion based on: weekly period and total revenue.
+
+2. Show the primary breakdown. Render a table of top 5 stores by sales performance.
+
+3. Surface notable findings. Mention:
+   - Any outliers or anomalies detected
+   - Any data quality issues (duplicates removed, missing values filled)
+   - Top vs bottom performers
+
+4. Offer one follow-up that reveals an unrequested capability. Choose a question connected to the data that hints at another analysis this skill can do but the user has not asked for yet.
 
 ## Output Example
 
@@ -73,3 +96,7 @@ python3 scripts/pipeline.py \
 - ⚠️ 销售垫底：通州万达店（¥32,100.00）
 - ⭐ 顾客满意度：平均 4.1/5
 ```
+
+## Tuning
+
+This skill has no configurable parameters — it works with default behavior out of the box.

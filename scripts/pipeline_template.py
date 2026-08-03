@@ -71,35 +71,89 @@ def _normalize_column(name: str) -> str:
     return name
 
 
-def _match_columns(expected: list[str], actual: list[str]) -> dict[str, str]:
+def _match_columns(expected: list[str], actual: list[str]) -> tuple[dict[str, str], list[str]]:
     """Map expected column names to actual column names via normalized matching.
 
     Each expected name is matched against the actual column headers using
     ``_normalize_column``. If no match is found, the expected name is used
-    as-is with a warning printed to stderr.
+    as-is and the column is recorded as unmatched.
 
     Args:
         expected: List of column names the code expects.
         actual:   List of column names present in the data.
 
     Returns:
-        Dict mapping each expected name to its matched actual name.
+        Tuple of (mapping dict, unmatched_expected list).
 
     Example:
-        >>> _match_columns(["Sale ID", "Amount"], ["sale_id", "amount_usd"])
+        >>> mapping, unmatched = _match_columns(["Sale ID", "Amount"], ["sale_id", "amount_usd"])
+        >>> mapping
         {'Sale ID': 'sale_id', 'Amount': 'amount_usd'}
+        >>> unmatched
+        []
     """
     mapping: dict[str, str] = {}
+    unmatched: list[str] = []
     actual_norm = {_normalize_column(a): a for a in actual}
     for exp in expected:
         norm = _normalize_column(exp)
-        mapping[exp] = actual_norm.get(norm, exp)
-        if norm not in actual_norm:
+        if norm in actual_norm:
+            mapping[exp] = actual_norm[norm]
+        else:
+            mapping[exp] = exp
+            unmatched.append(exp)
             print(
                 f"Warning: column '{exp}' not found in {actual}, using raw '{exp}'",
                 file=sys.stderr,
             )
-    return mapping
+    return mapping, unmatched
+def _build_diagnostics(
+    unmatched: list[str],
+    missing_required: list[str],
+    actual_columns: list[str],
+    mapping: dict[str, str],
+) -> dict:
+    """Build structured diagnostics dict for column mismatch scenarios.
+
+    The calling agent (not the pipeline user) reads _diagnostics to explain
+    what went wrong to the end user and offer remediation steps.
+
+    Args:
+        unmatched: Expected columns with no match in the actual data.
+        missing_required: Required columns that are absent entirely.
+        actual_columns: The column names actually found in the data.
+        mapping: The resolved column mapping (key = expected, value = matched actual).
+
+    Returns:
+        A diagnostics dict with keys status, column_detection,
+        missing_required, and best_guess.
+    """
+    status = 'partial' if unmatched and not missing_required else 'failed'
+
+    best_guess = {}
+    for col in unmatched:
+        col_norm = _normalize_column(col)
+        candidates = {ac: _normalize_column(ac) for ac in actual_columns}
+        best = next(
+            (ac for ac, nc in candidates.items() if col_norm in nc or nc in col_norm),
+            None,
+        )
+        if best:
+            best_guess[col] = best
+
+    return {
+        'status': status,
+        'column_detection': {
+            'unmatched': unmatched,
+            'best_guess': best_guess,
+            'hint': (
+                'Column names in your data do not match the supported language set. '
+                'Supported columns are listed in SKILL.md under Input. '
+                'Please rename columns or add language support.'
+            ),
+        },
+        'missing_required': missing_required,
+    }
 
 
 def _ensure_dir(path: str) -> None:

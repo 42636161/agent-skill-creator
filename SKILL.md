@@ -85,7 +85,7 @@ Phase 0: SPEC IDEATION — only when input is too vague to spec (single word, sh
 Phase 1: DISCOVERY — research APIs/data sources, decide. File-only input → skip API search.
 Phase 2: DESIGN — define 4-6 use cases, methodology, eval criteria. Always include comprehensive report.
 Phase 3: ARCHITECTURE — simple skill vs complex suite. Use architecture decision table.
-Phase 4: DETECTION — generate description + activation keywords. Multi-language triggers supported.
+Phase 4: DETECTION — generate description + scene-driven triggers (native language first, 3 speech patterns, no bare acronyms). Multi-language triggers supported.
 Phase 5: IMPLEMENTATION — create all files, validate, security scan. Fix failures, re-run, deliver.
 ```
 
@@ -96,8 +96,9 @@ See that file for detailed step-by-step instructions, templates, checklists, and
 
 **Phase 5 must**: report.md starts with executive summary ("本周结论"), not a data table.
 Pipeline stdout prints human-readable summary (≤8 lines). Use --json flag for machine output.
-Every generated SKILL.md MUST include a `## Runtime Contract` section stating:
-"scripts/ are implementation details, do not read by default. Only run: `python3 scripts/pipeline.py --input <file> --output <dir>`"
+Every generated SKILL.md MUST include:
+- `## Runtime Contract` with 5 mandatory fields + `### Presenting Results` sub-section
+- `## Tuning` section with user-facing parameter table
 
 ## Generated Skill Format
 
@@ -129,7 +130,29 @@ metadata:
 python3 scripts/pipeline.py --input <file> --output <dir>
 
 ## Runtime Contract
-- Only run the command above. scripts/ are implementation details, do not read by default.
+- Activation signal: when activating, agent declares "正在运行 <skill-name>" to the user
+- Only run: `python3 scripts/pipeline.py --input <file> --output <dir> [flags]`
+- Do not read scripts/. Implementation is in pipeline.py.
+- Output: <format and location description>
+- Primary anchor: <which file/section to read first for conclusions>
+- stdout: <what stdout produces — human summary, JSON, or silent>
+
+### Presenting Results
+
+After running the pipeline, present results to the user as follows:
+
+1. Lead with the headline from the primary summary field.
+2. Show the primary breakdown as a top-5 table sorted by value.
+3. Surface notable findings: outliers, data quality issues, top/bottom performers.
+4. Offer one follow-up that reveals an unrequested capability. Choose a question connected to the data that hints at another analysis this skill can do but the user has not asked for yet.
+
+## Tuning
+
+| Parameter | Default | What it controls | When to adjust |
+|-----------|---------|------------------|---------------|
+| ... | ... | ... | ... |
+
+Parameters are translated to user-facing language. Suggest changes when data suggests defaults are inappropriate.
 ```
 
 SKILL.md body < 500 lines. If detail exceeds 500 lines, merge into a single `references/guide.md`.
@@ -142,8 +165,7 @@ SKILL.md body < 500 lines. If detail exceeds 500 lines, merge into a single `ref
 | Code size | <1000 lines | >2000 lines |
 | Structure | Single SKILL.md | Multiple component SKILL.md files in components/ |
 
-**Anti-example**: Shift scheduling, reconciliation, and single-pipeline tasks are simple skills even if they have
-multiple processing steps — as long as they share one input→output pipeline, they are NOT suites.
+**Anti-example**: A data pipeline that loads, cleans, transforms, and exports data has 4 steps but produces one useful output — this is a simple skill with 1 workflow, NOT a suite. Counting processing steps as workflows is the most common architecture error.
 
 ## How to Run
 
