@@ -8,6 +8,18 @@ Read this file phase by phase — do NOT load all 5 phases at once. Load the cur
 
 ## Phase 1: Discovery
 
+### Mixed-input Gate (READ FIRST)
+
+Before entering the Decision Matrix for mixed input (file + sentence): if the user's
+sentence is a vague "automate this" / "帮我处理一下" with no stated output format,
+audience, or trigger — do NOT proceed to the Decision Matrix. Instead, present a
+one-line hypothesis and ask:
+
+> "From this data, it looks like you need [X output] for [Y audience]. Right?"
+
+Wait for confirmation. This is NOT Phase 0 — it is a one-question sanity check that
+takes one exchange and prevents building the wrong thing.
+
 ### Decision Matrix
 
 | Signal | Decision |
@@ -296,17 +308,37 @@ changes when the data suggests defaults are inappropriate.
    "This skill has no configurable parameters — it works with default behavior out of the box."
 
 
+### Output Location (MUST)
+
+Generated skills are written to the current working directory under
+`skills/<skill-name>/`:
+
+```
+skills/<skill-name>/
+├── SKILL.md
+├── AGENTS.md
+├── scripts/
+│   └── pipeline.py
+├── evals/                    # only when eval files exist
+│   └── <name>.eval.md
+└── references/               # only if needed
+```
+
+At the end of Phase 5, state the absolute output path clearly so the user can
+locate, run, and publish the skill. Example:
+
+> 技能已生成: `/path/to/current/dir/skills/inventory-replenishment-skill/`
+
 ### File Creation Order
 
-1. `SKILL.md` -- primary file, created FIRST
+1. `SKILL.md` -- primary file, created FIRST (inside `skills/<skill-name>/`)
 2. `scripts/pipeline.py` -- core implementation with validate/compute/report structure
 3. `scripts/run_evals.py` -- eval harness (copy from `scripts/run_evals_template.py`)
 4. `scripts/evolve.py` -- maintenance loop (copy from `scripts/evolve_template.py`)
-5. `evals/<name>.eval.md` -- eval specification
+5. `evals/<name>.eval.md` -- eval specification, ONLY when evals are generated (skip with --no-eval). Do not create an empty evals/ directory.
 6. `AGENTS.md` -- <=25 line dispatch card (run command + SKILL.md link. Do NOT read scripts/)
-7. `README.md` -- skillctl install instructions only (no manual install table)
-   Note: SKILL.md must include `## Tuning` section (parameters in user language), `## Runtime Contract` (5 mandatory fields + Presenting Results sub-section)
-8. `references/` -- only if detail exceeds SKILL.md 500-line limit. Merge into single `references/guide.md`.
+7. `references/` -- only if detail exceeds SKILL.md 500-line limit. Merge into single `references/guide.md`.
+8. NO README.md in generated packages -- install instructions live in skillhub, usage in SKILL.md.
 
 ### Output Quality Rules (MUST)
 
@@ -393,8 +425,9 @@ After 3 repeated failures: stop and report to user with full error output.
 - [ ] NO bash/ps1/bat wrapper files at skill root
 - [ ] NO EVOLUTION.md in initial delivery (generated post-delivery only)
 - [ ] NO references/api-guide.md unless the skill genuinely needs an API
+- [ ] NO empty evals/ directory (only create when eval files exist)
+- [ ] NO README.md in generated package (skillhub + SKILL.md cover install/usage)
 - [ ] AGENTS.md <= 25 lines (dispatch card only)
-- [ ] README.md uses skillctl install only (no manual install table)
 - [ ] validate.py passes with 0 errors
 - [ ] security_scan.py passes with 0 high-severity findings
 - [ ] Pipeline runs on golden case data

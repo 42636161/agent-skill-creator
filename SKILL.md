@@ -49,7 +49,7 @@ Triage what the user provided:
 | URLs only | Fetch each URL. Understand the data source. Infer what the user would do with this data. |
 | Screenshot | Read visually: what tool? What data? What manual step? What's the pain? |
 | Single word/phrase | Infer from context: present the most likely interpretation and confirm. **Do NOT build immediately — present a hypothesis first.** |
-| Mixed (files + sentence) | The files are the spec. The sentence is commentary. |
+| Mixed (files + sentence) | The files define the data. If the sentence names concrete output/audience/trigger — go to Phase 1. If the sentence is only "automate this" / "帮我处理一下" with no output intent — present a one-line hypothesis first ("这个数据看起来是用来做X的，输出给Y看？") and wait for confirmation. Do NOT build until the output is clear. |
 | Pasted reference material | This IS the knowledge to codify. Read it all. Identify what it governs. |
 
 **Discovery check before building**: Is this data already in a database? Has a colleague built a skill for this?
@@ -70,6 +70,8 @@ Present your understanding: "From your files, I understand you do X → Y → Z.
 4. **Identify the real output.** "Report" means "a PDF my VP can read in 2 minutes that shows whether we're hitting targets."
 
 **Hypothesis, not questionnaire.** Never present 5 questions upfront. Present: "From your files, I understand you do X → Y → Z weekly. Right?" The human confirms with one word.
+
+**Output gap detection.** When a file reveals data structure but the user's words reveal no output/audience/trigger, present a one-line hypothesis of the most likely interpretation and ask exactly ONE question before Phase 1. "This looks like a replenishment report — output to the store manager as a table?" Never build with an output gap.
 
 **Progressive refinement.** Build at 60% understanding. A concrete output the human can react to is faster than 15 clarifying questions.
 
@@ -99,6 +101,8 @@ Pipeline stdout prints human-readable summary (≤8 lines). Use --json flag for 
 Every generated SKILL.md MUST include:
 - `## Runtime Contract` with 5 mandatory fields + `### Presenting Results` sub-section
 - `## Tuning` section with user-facing parameter table
+Generated skills are written to `skills/<skill-name>/` in the current working directory.
+At the end of Phase 5, report the absolute output path to the user.
 
 ## Generated Skill Format
 

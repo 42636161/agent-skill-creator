@@ -344,10 +344,7 @@ def validate_skill(skill_path: str) -> dict:
                 "Required to expose configurable parameters in user-facing language."
             )
 
-        # --- README.md presence check ---
-        readme = skill_dir / "README.md"
-        if not readme.exists():
-            warnings.append("README.md not found — installation instructions are required")
+
 
 
     return {
